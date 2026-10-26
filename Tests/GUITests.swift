@@ -66,7 +66,7 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     check("F5 fügt Datum ein", tv.string.contains(String(Calendar.current.component(.year, from: Date()))))
 
     wc.zoomIn(nil); wc.zoomIn(nil)
-    check("Zoom 120 %", bar.zoomLabel.stringValue == "120 %" && abs(tv.font!.pointSize - 13 * 1.2) < 0.01, "\(bar.zoomLabel.stringValue) \(tv.font!.pointSize)")
+    check("Zoom 120 %", bar.zoomLabel.stringValue == "120 %" && abs((tv.typingAttributes[.font] as! NSFont).pointSize - 13 * 1.2) < 0.01, bar.zoomLabel.stringValue)
     wc.resetZoom(nil)
 
     check("Umbruch standardmäßig an", tv.textContainer!.widthTracksTextView)
