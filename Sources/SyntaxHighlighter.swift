@@ -226,7 +226,7 @@ final class SyntaxLanguage {
     func tokens(in text: NSString, cancel: SyntaxCancellation? = nil,
                 progress: ((_ tokens: [SyntaxToken], _ finalUpTo: Int) -> Void)? = nil) -> [SyntaxToken]? {
         var tokens: [SyntaxToken] = []
-        var nextReport = 2_000_000
+        var nextReport = 65_536  // the beginning of a file gets colored right away
         let finished = scan(text, offset: 0, from: 0, cancel: cancel) { range, kind in
             if let kind, range.length > 0 {
                 tokens.append(SyntaxToken(location: range.location, length: range.length, kind: kind))
@@ -714,6 +714,9 @@ final class SyntaxHighlighter {
             }
         }
     }
+
+    /// All tokens match the current text (used by tests).
+    var isUpToDate: Bool { complete && !isStale && edit == nil }
 
     private func finish(_ tokens: [SyntaxToken]) {
         self.tokens = tokens

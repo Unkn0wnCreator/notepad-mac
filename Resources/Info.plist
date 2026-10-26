@@ -53,5 +53,7 @@
 	<string>Basiert auf ReactOS Notepad – LGPL-2.1-or-later</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
 </dict>
 </plist>

@@ -30,6 +30,7 @@ enum TestMain {
         runConfigSyntaxTests()
         runIncrementalSyntaxTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
+        runPerformanceTests(fixtures: fixtures)
 
         print(failures == 0 ? "\nALLE TESTS OK" : "\n\(failures) FEHLER")
         if failures != 0 { exit(1) }

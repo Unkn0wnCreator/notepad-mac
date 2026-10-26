@@ -4,6 +4,7 @@
  */
 
 import AppKit
+import ServiceManagement
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// Templates for the Windows-style menu bar inside each window.
@@ -21,13 +22,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return menu
     }
 
+    /// Started by the system at login: stay in the background without opening a window.
+    private var launchedAsLoginItem = false
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         Preferences.registerDefaults()
         NSApp.mainMenu = makeMainMenu()
+        if let event = NSAppleEventManager.shared().currentAppleEvent,
+           event.eventID == kAEOpenApplication,
+           event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem {
+            launchedAsLoginItem = true
+        }
+        updateAutomaticTermination()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.main.async {
+            self.launchedAsLoginItem = false
+            EditorWindowController.prepareSpare()
+        }
+    }
+
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        !launchedAsLoginItem
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        !Preferences.keepRunning
+    }
+
+    private var automaticTerminationDisabled = false
+
+    /// Without this macOS may silently quit a windowless app to reclaim memory.
+    private func updateAutomaticTermination() {
+        if Preferences.keepRunning && !automaticTerminationDisabled {
+            ProcessInfo.processInfo.disableAutomaticTermination("Notepad bleibt für schnelles Öffnen bereit")
+            automaticTerminationDisabled = true
+        } else if !Preferences.keepRunning && automaticTerminationDisabled {
+            ProcessInfo.processInfo.enableAutomaticTermination("Notepad bleibt für schnelles Öffnen bereit")
+            automaticTerminationDisabled = false
+        }
     }
 
     // MARK: - Global actions
@@ -42,6 +76,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func toggleSyntaxHighlighting(_ sender: Any?) {
         Preferences.syntaxHighlighting.toggle()
+    }
+
+    @objc func toggleKeepRunning(_ sender: Any?) {
+        Preferences.keepRunning.toggle()
+        updateAutomaticTermination()
+    }
+
+    @objc func toggleLaunchAtLogin(_ sender: Any?) {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.messageText = "Der Start bei der Anmeldung konnte nicht geändert werden."
+            alert.runModal()
+        }
+        if service.status == .requiresApproval {
+            SMAppService.openSystemSettingsLoginItems()
+        }
     }
 
     @objc func toggleDefaultEditor(_ sender: Any?) {
@@ -66,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = Preferences.syntaxHighlighting ? .on : .off
         case #selector(toggleDefaultEditor(_:)):
             menuItem.state = DefaultEditor.isDefault ? .on : .off
+        case #selector(toggleKeepRunning(_:)):
+            menuItem.state = Preferences.keepRunning ? .on : .off
+        case #selector(toggleLaunchAtLogin(_:)):
+            menuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         default:
             break
         }
@@ -179,6 +240,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         let helpMenu = submenu(in: mainMenu, "Hilfe")
         helpMenu.addItem(item("Notepad als Standard-Texteditor verwenden", #selector(toggleDefaultEditor(_:))))
+        helpMenu.addItem(item("Im Hintergrund bereithalten (schneller Start)", #selector(toggleKeepRunning(_:))))
+        helpMenu.addItem(item("Bei der Anmeldung starten", #selector(toggleLaunchAtLogin(_:))))
         helpMenu.addItem(.separator())
         helpMenu.addItem(item("Über Notepad", #selector(showAbout(_:))))
         NSApp.helpMenu = helpMenu

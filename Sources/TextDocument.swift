@@ -42,7 +42,7 @@ final class TextDocument: NSDocument {
     override var shouldRunSavePanelWithAccessoryView: Bool { false }
 
     override func makeWindowControllers() {
-        let controller = EditorWindowController(text: loadedText)
+        let controller = EditorWindowController.make(text: loadedText)
         addWindowController(controller)
         loadedText = ""
 
@@ -52,9 +52,36 @@ final class TextDocument: NSDocument {
         }
     }
 
+    override func showWindows() {
+        super.showWindows()
+        // Prepare the window for the next document once this one is on screen.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            EditorWindowController.prepareSpare()
+        }
+    }
+
     /// Memory-maps the file instead of copying it into a buffer first.
     override func read(from url: URL, ofType typeName: String) throws {
         try read(from: Data(contentsOf: url, options: .alwaysMapped), ofType: typeName)
+    }
+
+    /// Untitled, unchanged and empty – a dropped file may take over its window.
+    var isEmptyUntitled: Bool {
+        fileURL == nil && !isDocumentEdited && (editor?.textView.plainText.length ?? loadedText.length) == 0
+    }
+
+    /// Moves `controller` (the window of an empty untitled document) over to this freshly
+    /// opened document, so a dropped file appears in the same window instead of a new one.
+    func adopt(_ controller: EditorWindowController, from previous: TextDocument) {
+        previous.removeWindowController(controller)
+        addWindowController(controller)
+        controller.replaceText(loadedText)
+        loadedText = ""
+        if startsWithLog {
+            controller.appendLogTimestamp()
+        }
+        previous.close()
+        controller.showWindow(nil)
     }
 
     override func read(from data: Data, ofType typeName: String) throws {

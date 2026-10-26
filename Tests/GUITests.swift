@@ -143,6 +143,31 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     let sprache = delegate.makeWindowMenu(at: 2).items.first { $0.title == "Sprache" }?.submenu
     check("Format > Sprache", sprache?.items.count == SyntaxLanguage.all.count + 3)
 
+    // Drag & drop: into an empty untitled window → same window; into a window with text → new one
+    let dropA = dir.appendingPathComponent("drop-a.txt"), dropB = dir.appendingPathComponent("drop-b.md")
+    try! "Abgelegt A".data(using: .utf8)!.write(to: dropA)
+    try! "# Abgelegt B".data(using: .utf8)!.write(to: dropB)
+    let emptyDoc = TextDocument(); NSDocumentController.shared.addDocument(emptyDoc)
+    emptyDoc.makeWindowControllers(); emptyDoc.showWindows()
+    let dropWC = emptyDoc.windowControllers.first as! EditorWindowController
+    let dropWindow = dropWC.window
+    dropWC.openDroppedFiles([dropA])
+    check("Drop in leeres Fenster: gleiches Fenster", waitUntil { (dropWC.document as? TextDocument)?.fileURL == dropA }
+          && dropWC.window === dropWindow && dropWC.textView.string == "Abgelegt A", dropWC.textView.string)
+    check("Drop: leeres Dokument geschlossen", !NSDocumentController.shared.documents.contains { $0 === emptyDoc })
+    check("Drop: Titel aktualisiert", dropWindow?.title == "drop-a.txt", dropWindow?.title ?? "")
+    dropWC.openDroppedFiles([dropB])
+    check("Drop in Fenster mit Text: neues Fenster", waitUntil {
+        NSDocumentController.shared.documents.contains { $0.fileURL == dropB && !$0.windowControllers.isEmpty }
+    } && (dropWC.document as? TextDocument)?.fileURL == dropA)
+
+    // Menu strip: hover detection maps screen points to titles
+    let dropStrip: MenuStripView = ivar(dropWC, "menuStrip")
+    dropStrip.layoutSubtreeIfNeeded()
+    let second = dropStrip.buttons[1]
+    let center = second.window!.convertPoint(toScreen: second.convert(NSPoint(x: second.bounds.midX, y: second.bounds.midY), to: nil))
+    check("Menüleiste: Titel unter der Maus erkannt", dropStrip.buttonIndex(atScreenPoint: center) == 1)
+
     let pdfURL = dir.appendingPathComponent("druck.pdf")
     try? FileManager.default.removeItem(at: pdfURL)
     tv.string = (1...150).map { "Zeile \($0)" }.joined(separator: "\n")

@@ -21,6 +21,27 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     private var widthUpdatePending = false
 
     private static var cascadePoint: NSPoint?
+    private static var spare: EditorWindowController?
+
+    /// Builds a hidden window ahead of time (when idle), so the next document shows up
+    /// without the ~40 ms of window and text view setup.
+    static func prepareSpare() {
+        guard spare == nil else { return }
+        let controller = EditorWindowController(text: "")
+        controller.window?.isExcludedFromWindowsMenu = true
+        spare = controller
+    }
+
+    /// A window for a new document: the prepared spare if there is one.
+    static func make(text: NSString) -> EditorWindowController {
+        guard let controller = spare else { return EditorWindowController(text: text) }
+        spare = nil
+        controller.window?.isExcludedFromWindowsMenu = false
+        if text.length > 0 {
+            controller.replaceText(text)
+        }
+        return controller
+    }
 
     private var textDocument: TextDocument? { document as? TextDocument }
 
@@ -53,6 +74,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         highlighter = SyntaxHighlighter(textView: textView, scrollView: scrollView)
         textView.textStorage?.delegate = self
         textView.layoutManager?.delegate = self
+        textView.registerForDraggedTypes([.fileURL])
+        textView.onFileDrop = { [weak self] urls in self?.openDroppedFiles(urls) }
 
         textView.string = text as String
         applyFont()
@@ -285,6 +308,37 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         return "\(time.string(from: now)) \(date.string(from: now))"
     }
 
+    // MARK: - Drag and drop
+
+    /// The first file replaces an empty, untouched "Unbenannt" window; all others (or all, if
+    /// this window already has text) open in new windows.
+    func openDroppedFiles(_ urls: [URL]) {
+        let controller = NSDocumentController.shared
+        var reuse = textDocument?.isEmptyUntitled == true ? textDocument : nil
+        for url in urls {
+            if let open = controller.document(for: url) {
+                open.showWindows()
+                continue
+            }
+            do {
+                // Opened directly (not via openDocument) so any file works, even without a
+                // known type, like Notepad's "Alle Dateien".
+                let document = try TextDocument(contentsOf: url, ofType: "public.plain-text")
+                controller.addDocument(document)
+                controller.noteNewRecentDocument(document)
+                if let previous = reuse {
+                    reuse = nil
+                    document.adopt(self, from: previous)
+                } else {
+                    document.makeWindowControllers()
+                    document.showWindows()
+                }
+            } catch {
+                presentError(error)
+            }
+        }
+    }
+
     // MARK: - Menu actions
 
     @objc func insertTimeDate(_ sender: Any?) {
@@ -372,7 +426,31 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 }
 
 /// Plain-text view whose font panel changes the shared Notepad font (unzoomed) for all windows.
+/// Dropped files are opened as documents instead of inserting their path.
 final class NotepadTextView: NSTextView {
+    var onFileDrop: (([URL]) -> Void)?
+
+    private func droppedFiles(_ info: NSDraggingInfo) -> [URL] {
+        let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+                                                       options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return urls.filter { !$0.hasDirectoryPath }
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFiles(sender).isEmpty ? super.draggingEntered(sender) : .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFiles(sender).isEmpty ? super.draggingUpdated(sender) : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let files = droppedFiles(sender)
+        guard !files.isEmpty, let onFileDrop else { return super.performDragOperation(sender) }
+        onFileDrop(files)
+        return true
+    }
+
     override func changeFont(_ sender: Any?) {
         let manager = sender as? NSFontManager ?? NSFontManager.shared
         Preferences.font = manager.convert(Preferences.font)

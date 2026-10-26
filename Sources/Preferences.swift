@@ -13,11 +13,12 @@ enum Preferences {
     private static let wordWrapKey = "wordWrap"
     private static let showStatusBarKey = "showStatusBar"
     private static let syntaxHighlightingKey = "syntaxHighlighting"
+    private static let keepRunningKey = "keepRunning"
 
     private static var defaults: UserDefaults { .standard }
 
     static func registerDefaults() {
-        defaults.register(defaults: [wordWrapKey: true, showStatusBarKey: true, syntaxHighlightingKey: true])
+        defaults.register(defaults: [wordWrapKey: true, showStatusBarKey: true, syntaxHighlightingKey: true, keepRunningKey: true])
     }
 
     static var defaultFont: NSFont {
@@ -51,6 +52,12 @@ enum Preferences {
     static var syntaxHighlighting: Bool {
         get { defaults.bool(forKey: syntaxHighlightingKey) }
         set { defaults.set(newValue, forKey: syntaxHighlightingKey); notify() }
+    }
+
+    /// Keep the app running without windows, so opening the next file takes milliseconds.
+    static var keepRunning: Bool {
+        get { defaults.bool(forKey: keepRunningKey) }
+        set { defaults.set(newValue, forKey: keepRunningKey); notify() }
     }
 
     private static func notify() {
