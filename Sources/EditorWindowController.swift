@@ -29,7 +29,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         }
     }
 
-    init(text: String) {
+    init(text: NSString) {
         // TextKit 1 with non-contiguous layout stays fast for large files.
         let storage = NSTextStorage()
         let layoutManager = NSLayoutManager()
@@ -51,7 +51,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         highlighter = SyntaxHighlighter(textView: textView, scrollView: scrollView)
         textView.textStorage?.delegate = self
 
-        textView.string = text
+        textView.string = text as String
         applyFont()
         applyWordWrap()
         applyStatusBarVisibility()
@@ -158,8 +158,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     func updateSyntaxLanguage() {
         let text = textView.string as NSString
-        let firstLine = text.substring(with: text.lineRange(for: NSRange(location: 0, length: 0)))
-        highlighter.language = textDocument?.syntaxLanguage(firstLine: firstLine)
+        let sample = text.substring(to: min(text.length, 8192)) as NSString
+        highlighter.language = textDocument?.syntaxLanguage(sample: sample)
         updateStatusBar()
     }
 
@@ -232,8 +232,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     // MARK: - Text
 
-    func replaceText(_ text: String) {
-        textView.string = text
+    func replaceText(_ text: NSString) {
+        textView.string = text as String
         applyFont()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         textDocument?.undoManager?.removeAllActions()
@@ -335,11 +335,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
                      range editedRange: NSRange, changeInLength delta: Int) {
         if editedMask.contains(.editedCharacters) {
             positionCache.textChanged(at: editedRange.location)
+            highlighter.textChanged(editedRange: editedRange, delta: delta)
         }
     }
 
     func textDidChange(_ notification: Notification) {
-        highlighter.textDidChange()
         // Untitled documents: pick up a shebang or XML header as it is typed.
         if textDocument?.fileURL == nil && textDocument?.languageChoice == nil {
             updateSyntaxLanguage()

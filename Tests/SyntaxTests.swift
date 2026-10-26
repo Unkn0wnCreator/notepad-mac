@@ -10,7 +10,7 @@ private func kind(of snippet: String, in text: String, language: String) -> Toke
     let ns = text as NSString
     let target = ns.range(of: snippet)
     precondition(target.location != NSNotFound, "\(snippet) not in sample")
-    let tokens = SyntaxLanguage.named(language)!.tokens(in: ns)
+    let tokens = SyntaxLanguage.named(language)!.tokens(in: ns)!
     return tokens.first { NSLocationInRange(target.location, $0.range) && NSMaxRange(target) <= NSMaxRange($0.range) }?.kind
 }
 
@@ -27,7 +27,7 @@ func runSyntaxTests() {
         (nil, "<?xml version=\"1.0\"?>", "xml"), (nil, "<!DOCTYPE html>", "html"), (nil, "Hallo", nil),
     ]
     for (fileName, firstLine, expected) in detections {
-        let detected = SyntaxLanguage.detect(fileName: fileName, firstLine: firstLine)?.id
+        let detected = SyntaxLanguage.detect(fileName: fileName, sample: firstLine as NSString)?.id
         check("Erkennung \(fileName ?? firstLine)", detected == expected, detected ?? "nil")
     }
 
@@ -86,7 +86,7 @@ func runSyntaxTests() {
 
     // Every language must handle an unterminated comment/string and text without matches.
     for language in SyntaxLanguage.all {
-        _ = language.tokens(in: "/* \" ' ``` <!-- \n plain words 123")
+        _ = language.tokens(in: "/* \" ' ``` <!-- \n plain words 123")!
         _ = language.tokens(in: "")
     }
     check("Alle Sprachen: Randfälle ohne Absturz", true)
@@ -103,4 +103,65 @@ func runSyntaxTests() {
     }
     print(String(format: "     1 MB: langsamste Sprache %@ mit %.0f ms", slowest.name, slowest.seconds * 1000))
     check("1 MB in jeder Sprache unter 1,5 s", slowest.seconds < 1.5, slowest)
+}
+
+/// After random edits, the incremental re-scan must give exactly the tokens of a full scan.
+func runIncrementalSyntaxTests() {
+    print("== Inkrementelle Hervorhebung")
+    let sample = """
+    // comment "quoted" /* not */
+    let s = "string // not a comment" + 'c' + `tpl`
+    /* block
+       comment */ fn main() { return 42 + 0x1F; }
+    # hash comment
+    key: value
+    [section]
+    name = "x" ; note
+    <tag attr="v">text</tag> <!-- c -->
+    SELECT * FROM t WHERE a = 'b' -- k
+    \"\"\" triple
+    still \"\"\" done
+    """
+    let pieces = ["\"", "'", "/*", "*/", "//", "\n", "#", "x", "let ", " ", "<!--", "-->", "`", "\"\"\"", "{", "}", ":", "="]
+    var generator = SystemRandomNumberGenerator()
+    var mismatches: [String] = []
+
+    for language in SyntaxLanguage.all {
+        let text = NSMutableString(string: String(repeating: sample + "\n", count: 6))
+        var tokens = language.tokens(in: text)!
+        for _ in 0..<60 {
+            // One to three edits before each re-scan, like fast typing.
+            var edit: SyntaxEdit?
+            for _ in 0..<Int.random(in: 1...3, using: &generator) {
+                let location = Int.random(in: 0...text.length, using: &generator)
+                let removed = min(Int.random(in: 0...4, using: &generator), text.length - location)
+                let inserted = Bool.random(using: &generator) ? pieces.randomElement(using: &generator)! : ""
+                text.replaceCharacters(in: NSRange(location: location, length: removed), with: inserted)
+                let edited = NSRange(location: location, length: (inserted as NSString).length)
+                let delta = edited.length - removed
+                if edit == nil { edit = SyntaxEdit(editedRange: edited, delta: delta) } else { edit!.merge(editedRange: edited, delta: delta) }
+            }
+            for windowSize in [200, 1_000_000] {
+                let plan = SyntaxLanguage.rescanPlan(old: tokens, text: text, edit: edit!, windowSize: windowSize)
+                var result = language.retokenize(window: text.substring(with: plan.window) as NSString,
+                                                 windowStart: plan.window.location, documentLength: text.length,
+                                                 restart: plan.restart, old: tokens, prefixCount: plan.prefixCount,
+                                                 edit: edit!, cancel: nil)
+                if case .needsMoreText = result {
+                    result = language.retokenize(window: text.copy() as! NSString, windowStart: 0, documentLength: text.length,
+                                                 restart: plan.restart, old: tokens, prefixCount: plan.prefixCount,
+                                                 edit: edit!, cancel: nil)
+                }
+                guard case .tokens(let incremental) = result else { mismatches.append(language.id); break }
+                let full = language.tokens(in: text)!
+                if incremental != full {
+                    mismatches.append(language.id)
+                    break
+                }
+                if windowSize == 1_000_000 { tokens = full }
+            }
+        }
+    }
+    check("Inkrementell = vollständig (\(SyntaxLanguage.all.count) Sprachen × 60 Runden)", mismatches.isEmpty,
+          Array(Set(mismatches)).sorted())
 }

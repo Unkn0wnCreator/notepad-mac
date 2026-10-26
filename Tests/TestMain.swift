@@ -27,6 +27,8 @@ enum TestMain {
         runCodecTests()
         runPositionCacheTests()
         runSyntaxTests()
+        runConfigSyntaxTests()
+        runIncrementalSyntaxTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
 
         print(failures == 0 ? "\nALLE TESTS OK" : "\n\(failures) FEHLER")

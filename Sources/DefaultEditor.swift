@@ -40,7 +40,8 @@ enum DefaultEditor {
     }
 
     /// Makes Notepad the default app and remembers the previous ones for `restore`.
-    static func makeDefault(completion: @escaping (_ failed: [UTType]) -> Void) {
+    /// Returns the types that could not be changed.
+    static func makeDefault() -> [UTType] {
         var previous = UserDefaults.standard.dictionary(forKey: previousHandlersKey) as? [String: String] ?? [:]
         for type in contentTypes where previous[type.identifier] == nil {
             if let url = NSWorkspace.shared.urlForApplication(toOpen: type), !isNotepad(url) {
@@ -49,11 +50,13 @@ enum DefaultEditor {
         }
         UserDefaults.standard.set(previous, forKey: previousHandlersKey)
 
-        setHandlers(contentTypes.map { ($0, Bundle.main.bundleURL) }, completion: completion)
+        // Make sure Launch Services resolves our bundle identifier to this copy of the app.
+        LSRegisterURL(Bundle.main.bundleURL as CFURL, true)
+        return setHandlers(contentTypes.map { ($0, Bundle.main.bundleURL) })
     }
 
     /// Gives every type back to the app it had before (TextEdit if unknown).
-    static func restore(completion: @escaping (_ failed: [UTType]) -> Void) {
+    static func restore() -> [UTType] {
         let previous = UserDefaults.standard.dictionary(forKey: previousHandlersKey) as? [String: String] ?? [:]
         let handlers = contentTypes.map { type -> (UTType, URL) in
             if let path = previous[type.identifier], FileManager.default.fileExists(atPath: path) {
@@ -61,74 +64,59 @@ enum DefaultEditor {
             }
             return (type, textEditURL)
         }
-        setHandlers(handlers) { failed in
-            if failed.isEmpty {
-                UserDefaults.standard.removeObject(forKey: previousHandlersKey)
-            }
-            completion(failed)
+        let failed = setHandlers(handlers)
+        if failed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: previousHandlersKey)
         }
+        return failed
     }
 
-    private static func setHandlers(_ handlers: [(UTType, URL)], completion: @escaping ([UTType]) -> Void) {
-        let group = DispatchGroup()
-        let lock = NSLock()
+    /// Uses Launch Services directly: unlike NSWorkspace.setDefaultApplication it does not ask
+    /// the user to confirm every single content type.
+    private static func setHandlers(_ handlers: [(UTType, URL)]) -> [UTType] {
         var failed: [UTType] = []
         for (type, appURL) in handlers {
-            group.enter()
-            NSWorkspace.shared.setDefaultApplication(at: appURL, toOpen: type) { error in
-                if error != nil {
-                    lock.lock()
-                    failed.append(type)
-                    lock.unlock()
-                }
-                group.leave()
+            guard let bundleID = Bundle(url: appURL)?.bundleIdentifier else {
+                failed.append(type)
+                continue
+            }
+            let status = LSSetDefaultRoleHandlerForContentType(type.identifier as CFString, .all, bundleID as CFString)
+            if status != noErr {
+                failed.append(type)
             }
         }
-        group.notify(queue: .main) { completion(failed) }
+        return failed
     }
 
     // MARK: - Menu action
 
+    /// One click in the menu, one confirmation. Only failures are reported afterwards.
     static func runToggleDialog() {
+        let alert = NSAlert()
         if isDefault {
-            let alert = NSAlert()
-            alert.messageText = "Notepad ist der Standard-Texteditor."
-            alert.informativeText = "Sollen Textdateien wieder mit den vorherigen Apps (z. B. TextEdit) geöffnet werden?"
+            alert.messageText = "Textdateien wieder mit den vorherigen Apps öffnen?"
+            alert.informativeText = "Notepad ist zurzeit der Standard-Texteditor. Die vorher verwendeten Apps (z. B. TextEdit) werden wiederhergestellt."
             alert.addButton(withTitle: "Zurückstellen")
-            alert.addButton(withTitle: "Abbrechen")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-            restore { failed in
-                showResult(failed, success: "Textdateien öffnen sich wieder mit den vorherigen Apps.")
-            }
         } else {
-            let alert = NSAlert()
             alert.messageText = "Notepad als Standard-Texteditor verwenden?"
-            var info = "Textdateien, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien "
-                + "werden danach per Doppelklick mit Notepad geöffnet statt mit TextEdit oder anderen Apps.\n\n"
-                + "Die bisherigen Apps werden gemerkt. Über denselben Menüpunkt lässt sich alles zurückstellen."
+            var info = "Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen."
             if !isInApplicationsFolder {
-                info += "\n\nTipp: Lege Notepad vorher in den Ordner „Programme“. Notepad liegt gerade hier:\n"
+                info += "\n\nTipp: Notepad liegt nicht im Ordner „Programme“, sondern in:\n"
                     + Bundle.main.bundleURL.deletingLastPathComponent().path
             }
             alert.informativeText = info
             alert.addButton(withTitle: "Als Standard festlegen")
-            alert.addButton(withTitle: "Abbrechen")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-            makeDefault { failed in
-                showResult(failed, success: "Notepad ist jetzt der Standard-Texteditor.")
-            }
         }
-    }
+        alert.addButton(withTitle: "Abbrechen")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-    private static func showResult(_ failed: [UTType], success: String) {
-        let alert = NSAlert()
-        if failed.isEmpty {
-            alert.messageText = success
-        } else {
-            alert.alertStyle = .warning
-            alert.messageText = "Einige Dateitypen konnten nicht umgestellt werden."
-            alert.informativeText = failed.map { $0.localizedDescription ?? $0.identifier }.joined(separator: "\n")
+        let failed = isDefault ? restore() : makeDefault()
+        if !failed.isEmpty {
+            let error = NSAlert()
+            error.alertStyle = .warning
+            error.messageText = "Einige Dateitypen konnten nicht umgestellt werden."
+            error.informativeText = failed.map { $0.localizedDescription ?? $0.identifier }.joined(separator: "\n")
+            error.runModal()
         }
-        alert.runModal()
     }
 }

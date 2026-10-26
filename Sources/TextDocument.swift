@@ -10,7 +10,7 @@ import AppKit
 final class TextDocument: NSDocument {
     private(set) var encoding: TextEncoding = .utf8
     private(set) var lineEnding: LineEnding = .lf
-    private var loadedText = ""
+    private var loadedText: NSString = ""
     private var startsWithLog = false
 
     /// nil = detect from file name; "" = plain text; otherwise a SyntaxLanguage id.
@@ -20,9 +20,9 @@ final class TextDocument: NSDocument {
         didSet { editor?.updateSyntaxLanguage() }
     }
 
-    func syntaxLanguage(firstLine: String) -> SyntaxLanguage? {
+    func syntaxLanguage(sample: NSString) -> SyntaxLanguage? {
         switch languageChoice {
-        case nil: return SyntaxLanguage.detect(fileName: fileURL?.lastPathComponent, firstLine: firstLine)
+        case nil: return SyntaxLanguage.detect(fileName: fileURL?.path, sample: sample)
         case "": return nil
         case let id?: return SyntaxLanguage.named(id)
         }
@@ -32,8 +32,8 @@ final class TextDocument: NSDocument {
         windowControllers.first as? EditorWindowController
     }
 
-    private var currentText: String {
-        editor?.textView.string ?? loadedText
+    private var currentText: NSString {
+        editor?.textView.textStorage?.mutableString ?? loadedText
     }
 
     // Classic Notepad behaviour: explicit Save, ask on close.
@@ -50,6 +50,11 @@ final class TextDocument: NSDocument {
         if startsWithLog {
             controller.appendLogTimestamp()
         }
+    }
+
+    /// Memory-maps the file instead of copying it into a buffer first.
+    override func read(from url: URL, ofType typeName: String) throws {
+        try read(from: Data(contentsOf: url, options: .alwaysMapped), ofType: typeName)
     }
 
     override func read(from data: Data, ofType typeName: String) throws {
@@ -96,7 +101,7 @@ final class TextDocument: NSDocument {
         let view = PrintTextView(frame: NSRect(x: 0, y: 0, width: width, height: 100))
         view.documentTitle = displayName
         view.appearance = NSAppearance(named: .aqua)
-        view.string = currentText
+        view.string = currentText as String
         view.font = Preferences.font
         view.textColor = .black
         view.isVerticallyResizable = true
