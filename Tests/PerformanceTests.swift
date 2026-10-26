@@ -48,10 +48,10 @@ func runPerformanceTests(fixtures: URL) {
     try! handle.close()
 
     var document: TextDocument!
-    measure("50 MB lesen + dekodieren", limit: 600) {
+    measure("50 MB lesen + dekodieren", limit: 150) {
         document = try! TextDocument(contentsOf: bigURL, ofType: "public.plain-text")
     }
-    measure("50 MB Fenster anzeigen", limit: 600) {
+    measure("50 MB Fenster anzeigen", limit: 400) {
         document.makeWindowControllers()
         document.showWindows()
         document.windowControllers[0].window!.displayIfNeeded()
@@ -83,7 +83,7 @@ func runPerformanceTests(fixtures: URL) {
     measure("50 MB Tastendruck ohne Umbruch", limit: 25) { type("g", at: 11) }
     Preferences.wordWrap = true
 
-    measure("50 MB speichern (CRLF)", limit: 900) { _ = try! document.data(ofType: "") }
+    measure("50 MB speichern (CRLF)", limit: 150) { _ = try! document.data(ofType: "") }
     document.close()
 
     // Incremental highlighting: 3 MB of Swift-like code, edit in the middle.

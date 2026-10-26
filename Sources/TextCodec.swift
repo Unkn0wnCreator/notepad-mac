@@ -87,6 +87,12 @@ enum TextCodec {
 
     /// UTF-8 or ANSI. `encoding == nil` means: UTF-8 if valid, otherwise ANSI.
     private static func decodeBytes(_ bytes: UnsafePointer<UInt8>, count: Int, encoding: TextEncoding?) -> DecodedText {
+        // Fast path: validate, convert and normalize line endings in one SIMD pass.
+        if encoding != .ansi, let decoded = FastUTF.decodeUTF8(bytes, count: count) {
+            let lineEnding = chooseLineEnding(crlf: decoded.crlfCount, lf: decoded.lfCount, cr: decoded.crCount)
+            return DecodedText(text: decoded.text, encoding: encoding ?? .utf8, lineEnding: lineEnding)
+        }
+
         var lineEnding = LineEnding.lf
         var buffer: UnsafeMutablePointer<UInt8>?
         var length = count
@@ -161,17 +167,15 @@ enum TextCodec {
             o += 1
         }
 
-        let lineEnding: LineEnding
-        if crlfCount + lfCount + crCount == 0 {
-            lineEnding = .lf
-        } else if crCount > crlfCount {
-            lineEnding = .cr
-        } else if lfCount > crlfCount {
-            lineEnding = .lf
-        } else {
-            lineEnding = .crlf
-        }
-        return (o, lineEnding)
+        return (o, chooseLineEnding(crlf: crlfCount, lf: lfCount, cr: crCount))
+    }
+
+    /// Same choice as ReactOS: the most frequent kind wins, CRLF on ties; LF if there are none.
+    private static func chooseLineEnding(crlf: Int, lf: Int, cr: Int) -> LineEnding {
+        if crlf + lf + cr == 0 { return .lf }
+        if cr > crlf { return .cr }
+        if lf > crlf { return .lf }
+        return .crlf
     }
 
     /// Simplified stand-in for IsTextUnicode's statistics test: Latin text in
@@ -196,6 +200,12 @@ enum TextCodec {
     }
 
     static func encode(_ text: NSString, encoding: TextEncoding, lineEnding: LineEnding) throws -> Data {
+        // Fast path for UTF-8: one SIMD pass that also writes the line endings (and normalizes
+        // pasted "\r").
+        if encoding == .utf8 || encoding == .utf8BOM {
+            return FastUTF.encodeUTF8(text, lineEnding: lineEnding.sequence, bom: encoding == .utf8BOM)
+        }
+
         // The editor only produces "\n", but pasted text may still contain "\r".
         var text = text
         if text.range(of: "\r", options: .literal).location != NSNotFound {
