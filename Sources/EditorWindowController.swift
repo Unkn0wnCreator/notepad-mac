@@ -7,7 +7,8 @@
 
 import AppKit
 
-final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, NSTextStorageDelegate {
+final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, NSTextStorageDelegate,
+                                    NSLayoutManagerDelegate {
     let textView: NotepadTextView
     private let scrollView = NSScrollView()
     private let menuStrip = MenuStripView()
@@ -17,6 +18,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     private var zoomPercent = 100
     private var highlighter: SyntaxHighlighter!
     private var positionCache = LinePositionCache()
+    private var widthUpdatePending = false
 
     private static var cascadePoint: NSPoint?
 
@@ -31,7 +33,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     init(text: NSString) {
         // TextKit 1 with non-contiguous layout stays fast for large files.
-        let storage = NSTextStorage()
+        let storage = PlainTextStorage()
         let layoutManager = NSLayoutManager()
         layoutManager.allowsNonContiguousLayout = true
         storage.addLayoutManager(layoutManager)
@@ -50,6 +52,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         layOut(in: window)
         highlighter = SyntaxHighlighter(textView: textView, scrollView: scrollView)
         textView.textStorage?.delegate = self
+        textView.layoutManager?.delegate = self
 
         textView.string = text as String
         applyFont()
@@ -157,7 +160,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     func updateSyntaxLanguage() {
-        let text = textView.string as NSString
+        let text = textView.plainText
         let sample = text.substring(to: min(text.length, 8192)) as NSString
         highlighter.language = textDocument?.syntaxLanguage(sample: sample)
         updateStatusBar()
@@ -165,7 +168,27 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     @objc private func clipViewFrameDidChange(_ notification: Notification) {
         textView.minSize = scrollView.contentSize
+        if !Preferences.wordWrap {
+            textView.frame.size.width = max(textView.frame.width, scrollView.contentSize.width)
+        }
         textView.sizeToFit()
+    }
+
+    /// Without word wrap the text view must be as wide as the longest line. Letting NSTextView
+    /// resize horizontally by itself measures the whole document on every keystroke (~45 ms
+    /// for 200 MB), so the width only grows from lines that have actually been laid out.
+    func layoutManager(_ layoutManager: NSLayoutManager, didCompleteLayoutFor textContainer: NSTextContainer?,
+                       atEnd layoutFinishedFlag: Bool) {
+        guard !Preferences.wordWrap, let textContainer, !widthUpdatePending else { return }
+        widthUpdatePending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.widthUpdatePending = false
+            let used = layoutManager.usedRect(for: textContainer).maxX + self.textView.textContainerInset.width * 2 + 20
+            if used > self.textView.frame.width {
+                self.textView.frame.size.width = used
+            }
+        }
     }
 
     private func applyFont() {
@@ -200,10 +223,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
             textView.frame.size.width = contentSize.width
         } else {
             scrollView.hasHorizontalScroller = true
-            textView.isHorizontallyResizable = true
+            textView.isHorizontallyResizable = false
             textView.autoresizingMask = []
             container.widthTracksTextView = false
             container.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            textView.frame.size.width = contentSize.width
         }
         textView.minSize = scrollView.contentSize
         textView.sizeToFit()
@@ -219,7 +243,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     func updateStatusBar() {
         guard Preferences.showStatusBar else { return }
-        let position = positionCache.position(of: textView.selectedRange().location, in: textView.string as NSString)
+        let position = positionCache.position(of: textView.selectedRange().location, in: textView.plainText)
         statusBar.positionLabel.stringValue = "Zeile \(position.line), Spalte \(position.column)"
         statusBar.zoomLabel.stringValue = "\(zoomPercent) %"
         statusBar.languageLabel.stringValue = Preferences.syntaxHighlighting
@@ -243,7 +267,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     func appendLogTimestamp() {
-        let end = (textView.string as NSString).length
+        let end = textView.plainText.length
         let stamp = "\n" + Self.timeDateString() + "\n"
         textView.setSelectedRange(NSRange(location: end, length: 0))
         textView.insertText(stamp, replacementRange: NSRange(location: end, length: 0))
@@ -269,7 +293,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     @objc func goToLine(_ sender: Any?) {
         guard let window else { return }
-        let text = textView.string as NSString
+        let text = textView.plainText
         let lineCount = LineScanner.lineCount(in: text)
         let currentLine = LineScanner.position(of: textView.selectedRange().location, in: text).line
 
@@ -291,7 +315,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
                 DispatchQueue.main.async { self.showLineOutOfRange() }
                 return
             }
-            let offset = LineScanner.offset(ofLine: line, in: self.textView.string as NSString)
+            let offset = LineScanner.offset(ofLine: line, in: self.textView.plainText)
             self.textView.setSelectedRange(NSRange(location: offset, length: 0))
             self.textView.scrollRangeToVisible(self.textView.selectedRange())
             window.makeFirstResponder(self.textView)
@@ -360,14 +384,17 @@ final class NotepadTextView: NSTextView {
 }
 
 /// Windows-style menu bar inside the window: Datei, Bearbeiten, Format, Ansicht, Hilfe.
+/// Like a real menu bar, moving the mouse to another title while a menu is open switches menus.
 final class MenuStripView: NSVisualEffectView {
+    private(set) var buttons: [NSButton] = []
+
     init() {
         super.init(frame: .zero)
         material = .titlebar
         blendingMode = .withinWindow
 
         let titles = (NSApp.delegate as? AppDelegate)?.windowMenuTitles ?? []
-        let buttons = titles.enumerated().map { index, title in
+        buttons = titles.enumerated().map { index, title in
             let button = NSButton(title: title, target: self, action: #selector(openMenu(_:)))
             button.bezelStyle = .recessed
             button.showsBorderOnlyWhileMouseInside = true
@@ -402,9 +429,35 @@ final class MenuStripView: NSVisualEffectView {
 
     @objc private func openMenu(_ sender: NSButton) {
         guard let delegate = NSApp.delegate as? AppDelegate else { return }
-        let menu = delegate.makeWindowMenu(at: sender.tag)
-        let below = NSPoint(x: 0, y: sender.isFlipped ? sender.bounds.maxY + 2 : -2)
-        menu.popUp(positioning: nil, at: below, in: sender)
+        var next: Int? = sender.tag
+
+        // popUp blocks while the menu is open; a timer in event-tracking mode watches the mouse
+        // and closes the menu when it moves onto another title, which then opens.
+        while let index = next {
+            next = nil
+            let button = buttons[index]
+            let menu = delegate.makeWindowMenu(at: index)
+            let timer = Timer(timeInterval: 0.02, repeats: true) { [weak self] _ in
+                guard let self, let hovered = self.buttonIndex(atScreenPoint: NSEvent.mouseLocation),
+                      hovered != index else { return }
+                next = hovered
+                menu.cancelTrackingWithoutAnimation()
+            }
+            RunLoop.current.add(timer, forMode: .eventTracking)
+            button.highlight(true)
+            let below = NSPoint(x: 0, y: button.isFlipped ? button.bounds.maxY + 2 : -2)
+            menu.popUp(positioning: nil, at: below, in: button)
+            button.highlight(false)
+            timer.invalidate()
+        }
+    }
+
+    func buttonIndex(atScreenPoint point: NSPoint) -> Int? {
+        guard let window else { return nil }
+        let inWindow = window.convertPoint(fromScreen: point)
+        return buttons.firstIndex { button in
+            button.bounds.contains(button.convert(inWindow, from: nil))
+        }
     }
 }
 
@@ -473,5 +526,12 @@ final class StatusBarView: NSVisualEffectView {
         divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
         divider.heightAnchor.constraint(equalToConstant: 14).isActive = true
         return divider
+    }
+}
+
+extension NSTextView {
+    /// The text without bridging copies (see `PlainTextStorage.backingString`).
+    var plainText: NSString {
+        (textStorage as? PlainTextStorage)?.backingString ?? (string as NSString)
     }
 }

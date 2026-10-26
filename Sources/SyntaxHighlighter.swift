@@ -663,7 +663,7 @@ final class SyntaxHighlighter {
         let cancel = SyntaxCancellation()
         running = cancel
         let expected = generation
-        let text = storage.mutableString
+        let text = textView.plainText
 
         if complete, let edit, !tokens.isEmpty {
             let plan = SyntaxLanguage.rescanPlan(old: tokens, text: text, edit: edit, windowSize: Self.windowSize)

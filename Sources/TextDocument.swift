@@ -33,7 +33,7 @@ final class TextDocument: NSDocument {
     }
 
     private var currentText: NSString {
-        editor?.textView.textStorage?.mutableString ?? loadedText
+        editor?.textView.plainText ?? loadedText
     }
 
     // Classic Notepad behaviour: explicit Save, ask on close.

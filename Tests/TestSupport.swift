@@ -21,3 +21,15 @@ func spin() {
 func ivar<T>(_ object: Any, _ name: String) -> T {
     Mirror(reflecting: object).children.first { $0.label == name }!.value as! T
 }
+
+/// Runs the run loop until `condition` holds (or the timeout passes) – for asynchronous
+/// work like background syntax highlighting, instead of fixed sleeps that can be flaky.
+@discardableResult
+func waitUntil(timeout: TimeInterval = 5, _ condition: () -> Bool) -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() {
+        if Date() > deadline { return false }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+    }
+    return true
+}

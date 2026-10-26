@@ -71,7 +71,10 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
 
     check("Umbruch standardmäßig an", tv.textContainer!.widthTracksTextView)
     delegate.toggleWordWrap(nil); spin()
-    check("Umbruch aus", !tv.textContainer!.widthTracksTextView && tv.isHorizontallyResizable)
+    check("Umbruch aus", !tv.textContainer!.widthTracksTextView && tv.enclosingScrollView!.hasHorizontalScroller)
+    tv.insertText(String(repeating: "lang ", count: 400), replacementRange: NSRange(location: 0, length: 0))
+    check("Ohne Umbruch: Breite wächst mit langer Zeile", waitUntil { tv.frame.width > 1500 }, tv.frame.width)
+    doc.undoManager?.undo(); spin()
     delegate.toggleWordWrap(nil); spin()
     check("Umbruch wieder an", tv.textContainer!.widthTracksTextView && abs(tv.frame.width - tv.enclosingScrollView!.contentSize.width) < 1, tv.frame.width)
 
@@ -98,7 +101,7 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     try! "import AppKit\nlet name = \"Notepad\" // Kommentar\n".data(using: .utf8)!.write(to: swiftURL)
     let swiftDoc = try! TextDocument(contentsOf: swiftURL, ofType: "public.plain-text")
     NSDocumentController.shared.addDocument(swiftDoc)
-    swiftDoc.makeWindowControllers(); swiftDoc.showWindows(); spin()
+    swiftDoc.makeWindowControllers(); swiftDoc.showWindows()
     let swiftWC = swiftDoc.windowControllers.first as! EditorWindowController
     let swiftBar: StatusBarView = ivar(swiftWC, "statusBar")
     let lm = swiftWC.textView.layoutManager!
@@ -106,32 +109,32 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
         lm.temporaryAttribute(.foregroundColor, atCharacterIndex: location, effectiveRange: nil) as? NSColor
     }
     check("Sprache Swift erkannt", swiftBar.languageLabel.stringValue == "Swift", swiftBar.languageLabel.stringValue)
-    check("Keyword eingefärbt", color(at: 0) == TokenKind.keyword.color)
+    check("Keyword eingefärbt", waitUntil { color(at: 0) == TokenKind.keyword.color })
     check("String eingefärbt", color(at: 25) == TokenKind.string.color)
     check("Bezeichner nicht eingefärbt", color(at: 18) == nil)
     check("Datei bleibt unverändert", !swiftDoc.isDocumentEdited)
 
-    swiftWC.textView.insertText("var ", replacementRange: NSRange(location: 0, length: 0)); spin()
-    check("Nach Tippen neu eingefärbt", color(at: 0) == TokenKind.keyword.color && color(at: 4) == TokenKind.keyword.color)
+    swiftWC.textView.insertText("var ", replacementRange: NSRange(location: 0, length: 0))
+    check("Nach Tippen neu eingefärbt", waitUntil { color(at: 0) == TokenKind.keyword.color && color(at: 4) == TokenKind.keyword.color })
 
     let plainItem = NSMenuItem(); plainItem.tag = 1
-    swiftDoc.changeSyntaxLanguage(plainItem); spin()
-    check("Nur Text: keine Farben", color(at: 0) == nil && swiftBar.languageLabel.stringValue == "Nur Text")
+    swiftDoc.changeSyntaxLanguage(plainItem)
+    check("Nur Text: keine Farben", waitUntil { color(at: 0) == nil } && swiftBar.languageLabel.stringValue == "Nur Text")
     let autoItem = NSMenuItem(); autoItem.tag = 0
-    swiftDoc.changeSyntaxLanguage(autoItem); spin()
-    check("Automatisch: wieder Swift", color(at: 0) == TokenKind.keyword.color)
+    swiftDoc.changeSyntaxLanguage(autoItem)
+    check("Automatisch: wieder Swift", waitUntil { color(at: 0) == TokenKind.keyword.color })
 
-    delegate.toggleSyntaxHighlighting(nil); spin()
-    check("Hervorhebung aus", color(at: 0) == nil)
-    delegate.toggleSyntaxHighlighting(nil); spin()
-    check("Hervorhebung wieder an", color(at: 0) == TokenKind.keyword.color)
+    delegate.toggleSyntaxHighlighting(nil)
+    check("Hervorhebung aus", waitUntil { color(at: 0) == nil })
+    delegate.toggleSyntaxHighlighting(nil)
+    check("Hervorhebung wieder an", waitUntil { color(at: 0) == TokenKind.keyword.color })
 
     let untitled = TextDocument(); NSDocumentController.shared.addDocument(untitled)
     untitled.makeWindowControllers(); untitled.showWindows()
     let untitledWC = untitled.windowControllers.first as! EditorWindowController
-    untitledWC.textView.insertText("#!/bin/bash\necho hi\n", replacementRange: NSRange(location: 0, length: 0)); spin()
+    untitledWC.textView.insertText("#!/bin/bash\necho hi\n", replacementRange: NSRange(location: 0, length: 0))
     let untitledBar: StatusBarView = ivar(untitledWC, "statusBar")
-    check("Unbenannt: Shebang erkannt", untitledBar.languageLabel.stringValue == "Shell", untitledBar.languageLabel.stringValue)
+    check("Unbenannt: Shebang erkannt", waitUntil { untitledBar.languageLabel.stringValue == "Shell" }, untitledBar.languageLabel.stringValue)
 
     // Standard-Editor: nur Menü und Typliste prüfen, nichts am System ändern
     let helpMenu = delegate.makeWindowMenu(at: 4)

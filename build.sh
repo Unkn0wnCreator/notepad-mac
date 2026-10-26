@@ -11,7 +11,10 @@ rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/de.lproj" build/tmp
 
 for arch in arm64 x86_64; do
-  swiftc "${SWIFTFLAGS[@]}" -target "$arch-apple-macos13.0" -o "build/tmp/Notepad-$arch" Sources/*.swift
+  clang -arch "$arch" -mmacosx-version-min=13.0 -isysroot "$SDK" -O2 -fobjc-arc \
+    -c Sources/PlainTextStorage.m -o "build/tmp/PlainTextStorage-$arch.o"
+  swiftc "${SWIFTFLAGS[@]}" -target "$arch-apple-macos13.0" -import-objc-header Sources/Notepad-Bridging-Header.h \
+    -o "build/tmp/Notepad-$arch" Sources/*.swift "build/tmp/PlainTextStorage-$arch.o"
 done
 lipo -create -output "$APP/Contents/MacOS/Notepad" build/tmp/Notepad-arm64 build/tmp/Notepad-x86_64
 
