@@ -30,6 +30,7 @@ enum TestMain {
         runConfigSyntaxTests()
         runIncrementalSyntaxTests()
         runFastUTFTests()
+        runGapBufferTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
         runPerformanceTests(fixtures: fixtures)
 

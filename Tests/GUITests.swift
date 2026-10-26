@@ -168,6 +168,16 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     let center = second.window!.convertPoint(toScreen: second.convert(NSPoint(x: second.bounds.midX, y: second.bounds.midY), to: nil))
     check("Menüleiste: Titel unter der Maus erkannt", dropStrip.buttonIndex(atScreenPoint: center) == 1)
 
+    // Closing a window must free its text (storage, layout manager and text view form a cycle)
+    weak var closedStorage: NSTextStorage?
+    autoreleasepool {
+        let leakDoc = try! TextDocument(contentsOf: dropA, ofType: "public.plain-text")
+        leakDoc.makeWindowControllers(); leakDoc.showWindows()
+        closedStorage = (leakDoc.windowControllers[0] as! EditorWindowController).textView.textStorage
+        leakDoc.close()
+    }
+    check("Geschlossenes Fenster gibt Text frei", waitUntil { closedStorage == nil })
+
     let pdfURL = dir.appendingPathComponent("druck.pdf")
     try? FileManager.default.removeItem(at: pdfURL)
     tv.string = (1...150).map { "Zeile \($0)" }.joined(separator: "\n")

@@ -401,6 +401,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     // MARK: - Delegates
 
+    /// Text storage, layout manager and text view keep each other alive; without breaking
+    /// that cycle a closed window would keep its whole document in memory.
+    func windowWillClose(_ notification: Notification) {
+        highlighter.cancel()
+        if let layoutManager = textView.layoutManager {
+            textView.textStorage?.removeLayoutManager(layoutManager)
+        }
+    }
+
     func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
         document?.undoManager
     }

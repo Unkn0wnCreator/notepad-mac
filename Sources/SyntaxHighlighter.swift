@@ -615,6 +615,15 @@ final class SyntaxHighlighter {
         NotificationCenter.default.removeObserver(self)
     }
 
+    /// Stops background work for good (window closed).
+    func cancel() {
+        isClosed = true
+        pending?.cancel()
+        running?.cancel()
+    }
+
+    private var isClosed = false
+
     /// Called from NSTextStorageDelegate for every character edit.
     func textChanged(editedRange: NSRange, delta: Int) {
         generation += 1
@@ -650,7 +659,7 @@ final class SyntaxHighlighter {
     }
 
     private func tokenize() {
-        guard let textView, let storage = textView.textStorage else { return }
+        guard !isClosed, let textView, let storage = textView.textStorage else { return }
         guard isEnabled, let language, storage.length <= Self.maxLength else {
             tokens = []
             complete = false

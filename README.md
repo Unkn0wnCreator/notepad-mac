@@ -90,11 +90,15 @@ Gemessen auf Apple Silicon (Release-Build):
 | davon eigener Code (Menüs, Sprachen, Fenster) | ca. 20 ms |
 | 10 MB Text öffnen / speichern | ca. 0,15 s / 0,2 s |
 | Tastendruck in 50 MB Datei | < 1 ms |
+| Tastendruck in 1 GB Datei, auch am Anfang (nach dem ersten an dieser Stelle) | ca. 1 ms (vorher bis 500 ms) |
+| Speicher für 1 GB ASCII- oder Latin-1-Text | ca. 1 GB (vorher 1,4–2,9 GB) |
 | Längste Blockierung beim Einfärben von 1–3 MB Code | ca. 15 ms |
 
 Wie das erreicht wird: Die Datei wird im Hintergrund in Tokens zerlegt, eingefärbt wird nur der
 sichtbare Bereich (plus Puffer) und beim Scrollen der Rest. Die Statusleiste zählt Zeilen ab der
-letzten bekannten Cursorposition statt jedes Mal ab Dateianfang.
+letzten bekannten Cursorposition statt jedes Mal ab Dateianfang. Der Text liegt in einem
+Lückenpuffer (Gap Buffer): Eingaben verschieben nicht mehr den ganzen Rest der Datei, und Text aus
+Latin-1-Zeichen braucht nur ein Byte pro Zeichen.
 
 ## Entwicklung
 

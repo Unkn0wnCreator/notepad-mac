@@ -67,20 +67,20 @@ func runPerformanceTests(fixtures: URL) {
         window.displayIfNeeded()
     }
     type("a", at: 0)  // the first edit at a position may move memory once
-    measure("50 MB Tastendruck am Anfang", limit: 25) { type("b", at: 1) }
+    measure("50 MB Tastendruck am Anfang", limit: 5) { type("b", at: 1) }
     measure("50 MB Sprung in die Mitte", limit: 150) {
         textView.setSelectedRange(NSRange(location: length / 2, length: 0))
         textView.scrollRangeToVisible(textView.selectedRange())
         window.displayIfNeeded()
     }
     type("c", at: length / 2)
-    measure("50 MB Tastendruck in der Mitte", limit: 25) { type("d", at: length / 2 + 1) }
+    measure("50 MB Tastendruck in der Mitte", limit: 5) { type("d", at: length / 2 + 1) }
     type("e", at: textView.plainText.length)
-    measure("50 MB Tastendruck am Ende", limit: 10) { type("f", at: textView.plainText.length) }
+    measure("50 MB Tastendruck am Ende", limit: 5) { type("f", at: textView.plainText.length) }
 
     Preferences.wordWrap = false
     type("f", at: 10)
-    measure("50 MB Tastendruck ohne Umbruch", limit: 25) { type("g", at: 11) }
+    measure("50 MB Tastendruck ohne Umbruch", limit: 5) { type("g", at: 11) }
     Preferences.wordWrap = true
 
     measure("50 MB speichern (CRLF)", limit: 150) { _ = try! document.data(ofType: "") }
