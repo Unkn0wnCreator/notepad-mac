@@ -9,7 +9,9 @@ SDK=$(xcrun --show-sdk-path)
 SOURCES=$(ls Sources/*.swift | grep -v '/main.swift$')
 # Optimized like the release build, so the performance tests measure real numbers.
 clang -O2 -fobjc-arc -isysroot "$SDK" -c Sources/PlainTextStorage.m -o build/tests/PlainTextStorage.o
-swiftc -O -swift-version 5 -parse-as-library -sdk "$SDK" -import-objc-header Sources/Notepad-Bridging-Header.h \
+# The previous storage implementation, kept as the baseline for the storage benchmarks.
+clang -O2 -fobjc-arc -isysroot "$SDK" -c Tests/LegacyTextStorage.m -o build/tests/LegacyTextStorage.o
+swiftc -O -swift-version 5 -parse-as-library -sdk "$SDK" -import-objc-header Tests/Tests-Bridging-Header.h \
   -framework AppKit -framework PDFKit \
-  -o build/tests/notepad-tests $SOURCES Tests/*.swift build/tests/PlainTextStorage.o
+  -o build/tests/notepad-tests $SOURCES Tests/*.swift build/tests/PlainTextStorage.o build/tests/LegacyTextStorage.o
 build/tests/notepad-tests

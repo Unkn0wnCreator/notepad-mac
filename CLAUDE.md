@@ -34,6 +34,9 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
   Hält Kodierung, Zeilenende, Sprachwahl. Kein Autosave (klassisches Speichern wie Notepad).
 - `Sources/EditorWindowController.swift` – Fenster, `NotepadTextView` (TextKit 1, non-contiguous
   layout), `MenuStripView`, `StatusBarView`, Zoom, Gehe zu Zeile, F5, `.LOG`.
+- `Sources/PlainTextStorage.h/.m` – Objective-C: `GapBufferString` (Lückenpuffer, Latin-1 mit
+  1 Byte pro Zeichen, sonst UTF-16) und `PlainTextStorage` (NSTextStorage mit Attribut-Läufen,
+  Attribute werden faul ergänzt). Swift liest den Text über `backingString` ohne Kopie.
 - `Sources/TextCodec.swift` – Kodierungserkennung/-umwandlung (Port von ReactOS `text.c`),
   `LineScanner` und `LinePositionCache` für Zeile/Spalte.
 - `Sources/SyntaxHighlighter.swift` – `SyntaxLanguage` (Definitionen + Erkennung) und
@@ -63,6 +66,11 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
   NSDocument/AppKit-Aufrufe an der Concurrency-Prüfung.
 - `test.sh` kompiliert alle Quellen außer `main.swift` zusammen mit `Tests/` (`@main` in
   `Tests/TestMain.swift`, daher `-parse-as-library`). Private Properties prüfen die Tests über `ivar(_:_:)`.
+  Die Tests nutzen `Tests/Tests-Bridging-Header.h`; `Tests/LegacyTextStorage.m` ist der alte
+  Textspeicher als Vergleich für den Benchmark (`NOTEPAD_BIG_BENCH=1` misst zusätzlich 1 GB).
+- **Textansicht freigeben**: Textspeicher, Layout-Manager, Container und `NSTextView` halten sich
+  gegenseitig fest, bis der Layout-Manager aus dem Textspeicher entfernt wird
+  (`removeLayoutManager`) – sonst bleibt der ganze Text nach dem Schließen im Speicher.
 
 ## Leistungsbudget
 

@@ -4,6 +4,26 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## Unveröffentlicht
+
+### Verbessert
+
+- Tippen in sehr großen Dateien: Der Textspeicher ist jetzt ein Lückenpuffer (Gap Buffer).
+  In 1 GB Text kostet ein Tastendruck am Anfang oder in der Mitte ca. 1 ms statt bis zu 500 ms;
+  nur der erste Tastendruck an einer neuen Stelle verschiebt die Lücke einmal.
+- Weniger Speicher: Text, der nur aus Latin-1-Zeichen besteht (ASCII, deutsche Umlaute …),
+  braucht ein Byte pro Zeichen (200 MB: ca. 194 MB statt 572 MB; 1 GB ASCII: ca. 0,97 GB statt
+  1,4 GB). Das erste Zeichen außerhalb von Latin-1 (z. B. €, Emoji) stellt einmalig auf UTF-16 um.
+- Laden, Springen und Anzeigen bleiben so schnell wie vorher; Schnappschüsse für die
+  Hervorhebung und das Lesen des ganzen Textes sind teils schneller.
+
+### Tests
+
+- Zufallstests für Lückenpuffer und Attribut-Läufe gegen `NSMutableString` bzw.
+  `NSMutableAttributedString`, Test mit echter Textansicht (Eingabe, Löschen, Rückgängig,
+  Eingabemethode) und Benchmark 200 MB gegen den alten Textspeicher
+  (1 GB mit `NOTEPAD_BIG_BENCH=1 ./test.sh`).
+
 ## 1.1.0 – 2026-10-26
 
 ### Hinzugefügt
