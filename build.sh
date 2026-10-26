@@ -1,0 +1,34 @@
+#!/bin/bash
+# Builds build/Notepad.app (Universal: Apple Silicon + Intel).
+set -euo pipefail
+cd "$(dirname "$0")"
+
+APP=build/Notepad.app
+SDK=$(xcrun --show-sdk-path)
+SWIFTFLAGS=(-O -swift-version 5 -sdk "$SDK" -framework AppKit)
+
+rm -rf build
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/de.lproj" build/tmp
+
+for arch in arm64 x86_64; do
+  swiftc "${SWIFTFLAGS[@]}" -target "$arch-apple-macos13.0" -o "build/tmp/Notepad-$arch" Sources/*.swift
+done
+lipo -create -output "$APP/Contents/MacOS/Notepad" build/tmp/Notepad-arm64 build/tmp/Notepad-x86_64
+
+cp Resources/Info.plist "$APP/Contents/Info.plist"
+touch "$APP/Contents/Resources/de.lproj/InfoPlist.strings"
+
+# App icon
+swiftc "${SWIFTFLAGS[@]}" -o build/tmp/make-icon Tools/make-icon.swift
+build/tmp/make-icon build/tmp/icon-1024.png
+ICONSET=build/tmp/AppIcon.iconset
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z $size $size build/tmp/icon-1024.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $((size * 2)) $((size * 2)) build/tmp/icon-1024.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+
+codesign --force --sign - "$APP"
+rm -rf build/tmp
+echo "Fertig: $APP"

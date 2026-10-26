@@ -1,0 +1,152 @@
+/*
+ * Notepad für macOS – Dokument (Öffnen, Speichern, Drucken).
+ * Entspricht DoOpenFile/DoSaveFile in dialog.c und printing.c von ReactOS Notepad.
+ * LICENSE: LGPL-2.1-or-later
+ */
+
+import AppKit
+
+@objc(TextDocument)
+final class TextDocument: NSDocument {
+    private(set) var encoding: TextEncoding = .utf8
+    private(set) var lineEnding: LineEnding = .lf
+    private var loadedText = ""
+    private var startsWithLog = false
+
+    private var editor: EditorWindowController? {
+        windowControllers.first as? EditorWindowController
+    }
+
+    private var currentText: String {
+        editor?.textView.string ?? loadedText
+    }
+
+    // Classic Notepad behaviour: explicit Save, ask on close.
+    override class var autosavesInPlace: Bool { false }
+
+    override var shouldRunSavePanelWithAccessoryView: Bool { false }
+
+    override func makeWindowControllers() {
+        let controller = EditorWindowController(text: loadedText)
+        addWindowController(controller)
+        loadedText = ""
+
+        // Files starting with ".LOG" get a time stamp appended on every open.
+        if startsWithLog {
+            controller.appendLogTimestamp()
+        }
+    }
+
+    override func read(from data: Data, ofType typeName: String) throws {
+        let decoded = TextCodec.decode(data)
+        encoding = decoded.encoding
+        lineEnding = decoded.lineEnding
+        startsWithLog = decoded.text.hasPrefix(".LOG")
+
+        if let editor {
+            // "Zurück zur letzten gesicherten Version"
+            editor.replaceText(decoded.text)
+        } else {
+            loadedText = decoded.text
+        }
+    }
+
+    override func data(ofType typeName: String) throws -> Data {
+        do {
+            return try TextCodec.encode(currentText, encoding: encoding, lineEnding: lineEnding)
+        } catch TextCodecError.unrepresentable(let encoding) {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteInapplicableStringEncodingError, userInfo: [
+                NSLocalizedDescriptionKey: "Der Text enthält Zeichen, die in \(encoding.displayName) nicht gespeichert werden können.",
+                NSLocalizedRecoverySuggestionErrorKey: "Wähle unter „Format > Kodierung“ z. B. UTF-8 und sichere erneut.",
+            ])
+        }
+    }
+
+    override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
+        savePanel.allowsOtherFileTypes = true
+        savePanel.isExtensionHidden = false
+        return true
+    }
+
+    override func printOperation(withSettings printSettings: [NSPrintInfo.AttributeKey: Any]) throws -> NSPrintOperation {
+        let info = printInfo.copy() as! NSPrintInfo
+        info.dictionary().addEntries(from: printSettings)
+        info.dictionary()[NSPrintInfo.AttributeKey.headerAndFooter] = true
+        info.horizontalPagination = .fit
+        info.verticalPagination = .automatic
+        info.isHorizontallyCentered = false
+        info.isVerticallyCentered = false
+
+        let width = info.paperSize.width - info.leftMargin - info.rightMargin
+        let view = PrintTextView(frame: NSRect(x: 0, y: 0, width: width, height: 100))
+        view.documentTitle = displayName
+        view.appearance = NSAppearance(named: .aqua)
+        view.string = currentText
+        view.font = Preferences.font
+        view.textColor = .black
+        view.isVerticallyResizable = true
+        view.isHorizontallyResizable = false
+        view.textContainer?.widthTracksTextView = true
+        view.sizeToFit()
+
+        let operation = NSPrintOperation(view: view, printInfo: info)
+        operation.jobTitle = displayName
+        return operation
+    }
+
+    // MARK: - Format menu
+
+    @objc func changeTextEncoding(_ sender: NSMenuItem) {
+        guard let newEncoding = TextEncoding(rawValue: sender.tag), newEncoding != encoding else { return }
+        encoding = newEncoding
+        updateChangeCount(.changeDone)
+        editor?.updateStatusBar()
+    }
+
+    @objc func changeLineEnding(_ sender: NSMenuItem) {
+        guard let newLineEnding = LineEnding(rawValue: sender.tag), newLineEnding != lineEnding else { return }
+        lineEnding = newLineEnding
+        updateChangeCount(.changeDone)
+        editor?.updateStatusBar()
+    }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if let menuItem = item as? NSMenuItem {
+            switch menuItem.action {
+            case #selector(changeTextEncoding(_:)):
+                menuItem.state = menuItem.tag == encoding.rawValue ? .on : .off
+                return true
+            case #selector(changeLineEnding(_:)):
+                menuItem.state = menuItem.tag == lineEnding.rawValue ? .on : .off
+                return true
+            default:
+                break
+            }
+        }
+        return super.validateUserInterfaceItem(item)
+    }
+}
+
+/// Text view used only for printing: header shows the file name, footer the page number
+/// (ReactOS defaults "&f" and "Page &p").
+final class PrintTextView: NSTextView {
+    var documentTitle = ""
+
+    override var pageHeader: NSAttributedString {
+        centered(documentTitle)
+    }
+
+    override var pageFooter: NSAttributedString {
+        centered("Seite \(NSPrintOperation.current?.currentPage ?? 1)")
+    }
+
+    private func centered(_ string: String) -> NSAttributedString {
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        return NSAttributedString(string: string, attributes: [
+            .font: NSFont.systemFont(ofSize: 9),
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: style,
+        ])
+    }
+}
