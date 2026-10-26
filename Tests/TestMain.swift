@@ -25,6 +25,8 @@ enum TestMain {
         delegate.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
 
         runCodecTests()
+        runPositionCacheTests()
+        runSyntaxTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
 
         print(failures == 0 ? "\nALLE TESTS OK" : "\n\(failures) FEHLER")

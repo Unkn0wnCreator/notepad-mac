@@ -7,7 +7,7 @@
 
 import AppKit
 
-final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate {
+final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTextViewDelegate, NSTextStorageDelegate {
     let textView: NotepadTextView
     private let scrollView = NSScrollView()
     private let menuStrip = MenuStripView()
@@ -15,13 +15,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     private var scrollBottomToStatusBar: NSLayoutConstraint!
     private var scrollBottomToWindow: NSLayoutConstraint!
     private var zoomPercent = 100
+    private var highlighter: SyntaxHighlighter!
+    private var positionCache = LinePositionCache()
 
     private static var cascadePoint: NSPoint?
 
     private var textDocument: TextDocument? { document as? TextDocument }
 
     override var document: AnyObject? {
-        didSet { updateStatusBar() }
+        didSet {
+            updateSyntaxLanguage()
+            updateStatusBar()
+        }
     }
 
     init(text: String) {
@@ -43,11 +48,14 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
         configureTextView()
         layOut(in: window)
+        highlighter = SyntaxHighlighter(textView: textView, scrollView: scrollView)
+        textView.textStorage?.delegate = self
 
         textView.string = text
         applyFont()
         applyWordWrap()
         applyStatusBarVisibility()
+        highlighter.isEnabled = Preferences.syntaxHighlighting
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         window.initialFirstResponder = textView
 
@@ -144,6 +152,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         applyFont()
         applyWordWrap()
         applyStatusBarVisibility()
+        highlighter.isEnabled = Preferences.syntaxHighlighting
+        updateStatusBar()
+    }
+
+    func updateSyntaxLanguage() {
+        let text = textView.string as NSString
+        let firstLine = text.substring(with: text.lineRange(for: NSRange(location: 0, length: 0)))
+        highlighter.language = textDocument?.syntaxLanguage(firstLine: firstLine)
+        updateStatusBar()
     }
 
     @objc private func clipViewFrameDidChange(_ notification: Notification) {
@@ -202,9 +219,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     func updateStatusBar() {
         guard Preferences.showStatusBar else { return }
-        let position = LineScanner.position(of: textView.selectedRange().location, in: textView.string as NSString)
+        let position = positionCache.position(of: textView.selectedRange().location, in: textView.string as NSString)
         statusBar.positionLabel.stringValue = "Zeile \(position.line), Spalte \(position.column)"
         statusBar.zoomLabel.stringValue = "\(zoomPercent) %"
+        statusBar.languageLabel.stringValue = Preferences.syntaxHighlighting
+            ? highlighter.language?.name ?? "Nur Text" : "Nur Text"
         if let textDocument {
             statusBar.lineEndingLabel.stringValue = textDocument.lineEnding.displayName
             statusBar.encodingLabel.stringValue = textDocument.encoding.displayName
@@ -218,6 +237,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         applyFont()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         textDocument?.undoManager?.removeAllActions()
+        updateSyntaxLanguage()
+        highlighter.refresh()
         updateStatusBar()
     }
 
@@ -309,6 +330,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     func textViewDidChangeSelection(_ notification: Notification) {
         updateStatusBar()
     }
+
+    func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
+                     range editedRange: NSRange, changeInLength delta: Int) {
+        if editedMask.contains(.editedCharacters) {
+            positionCache.textChanged(at: editedRange.location)
+        }
+    }
+
+    func textDidChange(_ notification: Notification) {
+        highlighter.textDidChange()
+        // Untitled documents: pick up a shebang or XML header as it is typed.
+        if textDocument?.fileURL == nil && textDocument?.languageChoice == nil {
+            updateSyntaxLanguage()
+        }
+    }
 }
 
 /// Plain-text view whose font panel changes the shared Notepad font (unzoomed) for all windows.
@@ -375,6 +411,7 @@ final class MenuStripView: NSVisualEffectView {
 final class StatusBarView: NSVisualEffectView {
     let positionLabel = StatusBarView.makeLabel()
     let zoomLabel = StatusBarView.makeLabel()
+    let languageLabel = StatusBarView.makeLabel()
     let lineEndingLabel = StatusBarView.makeLabel()
     let encodingLabel = StatusBarView.makeLabel()
 
@@ -390,6 +427,7 @@ final class StatusBarView: NSVisualEffectView {
         let stack = NSStackView(views: [
             positionLabel, Self.makeDivider(),
             zoomLabel, Self.makeDivider(),
+            languageLabel, Self.makeDivider(),
             lineEndingLabel, Self.makeDivider(),
             encodingLabel,
         ])
@@ -409,6 +447,7 @@ final class StatusBarView: NSVisualEffectView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
             zoomLabel.widthAnchor.constraint(equalToConstant: 44),
+            languageLabel.widthAnchor.constraint(equalToConstant: 150),
             lineEndingLabel.widthAnchor.constraint(equalToConstant: 118),
             encodingLabel.widthAnchor.constraint(equalToConstant: 128),
         ])

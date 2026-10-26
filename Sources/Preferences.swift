@@ -12,11 +12,12 @@ enum Preferences {
     private static let fontKey = "font"
     private static let wordWrapKey = "wordWrap"
     private static let showStatusBarKey = "showStatusBar"
+    private static let syntaxHighlightingKey = "syntaxHighlighting"
 
     private static var defaults: UserDefaults { .standard }
 
     static func registerDefaults() {
-        defaults.register(defaults: [wordWrapKey: true, showStatusBarKey: true])
+        defaults.register(defaults: [wordWrapKey: true, showStatusBarKey: true, syntaxHighlightingKey: true])
     }
 
     static var defaultFont: NSFont {
@@ -45,6 +46,11 @@ enum Preferences {
     static var showStatusBar: Bool {
         get { defaults.bool(forKey: showStatusBarKey) }
         set { defaults.set(newValue, forKey: showStatusBarKey); notify() }
+    }
+
+    static var syntaxHighlighting: Bool {
+        get { defaults.bool(forKey: syntaxHighlightingKey) }
+        set { defaults.set(newValue, forKey: syntaxHighlightingKey); notify() }
     }
 
     private static func notify() {

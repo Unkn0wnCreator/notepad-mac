@@ -205,9 +205,16 @@ enum LineScanner {
     /// 1-based line and column of a UTF-16 offset. "\r\n", "\r" and "\n" each end a line.
     static func position(of location: Int, in text: NSString) -> (line: Int, column: Int) {
         let end = min(location, text.length)
-        var line = 1, lineStart = 0, previousWasCR = false
-        var buffer = [unichar](repeating: 0, count: chunkSize)
-        var chunkStart = 0
+        let result = scan(text, from: 0, to: end)
+        return (1 + result.lineBreaks, end - result.lineStart + 1)
+    }
+
+    /// Counts line breaks in `start..<end` and returns where the last line in that range starts.
+    static func scan(_ text: NSString, from start: Int, to end: Int) -> (lineBreaks: Int, lineStart: Int) {
+        var lineBreaks = 0, lineStart = start
+        var previousWasCR = start > 0 && text.character(at: start - 1) == 0x0D
+        var buffer = [unichar](repeating: 0, count: min(chunkSize, max(end - start, 0)))
+        var chunkStart = start
 
         while chunkStart < end {
             let length = min(chunkSize, end - chunkStart)
@@ -215,11 +222,11 @@ enum LineScanner {
             for i in 0..<length {
                 let c = buffer[i]
                 if c == 0x0A {
-                    if !previousWasCR { line += 1 }
+                    if !previousWasCR { lineBreaks += 1 }
                     lineStart = chunkStart + i + 1
                     previousWasCR = false
                 } else if c == 0x0D {
-                    line += 1
+                    lineBreaks += 1
                     lineStart = chunkStart + i + 1
                     previousWasCR = true
                 } else {
@@ -228,7 +235,18 @@ enum LineScanner {
             }
             chunkStart += length
         }
-        return (line, end - lineStart + 1)
+        return (lineBreaks, lineStart)
+    }
+
+    /// Start of the line containing `location`, found by searching backwards.
+    static func lineStart(of location: Int, in text: NSString) -> Int {
+        var index = location
+        while index > 0 {
+            let c = text.character(at: index - 1)
+            if c == 0x0A || c == 0x0D { break }
+            index -= 1
+        }
+        return index
     }
 
     static func lineCount(in text: NSString) -> Int {
@@ -264,5 +282,39 @@ enum LineScanner {
             chunkStart += length
         }
         return lineStart
+    }
+}
+
+/// Remembers the last caret position, so the status bar only scans the text between the old
+/// and the new position instead of the whole document on every keystroke.
+struct LinePositionCache {
+    private var line = 1
+    private var lineStart = 0
+
+    /// Edits before the remembered line start change its line number.
+    mutating func textChanged(at location: Int) {
+        if location < lineStart {
+            line = 1
+            lineStart = 0
+        }
+    }
+
+    mutating func position(of location: Int, in text: NSString) -> (line: Int, column: Int) {
+        let location = min(location, text.length)
+        if lineStart > text.length {
+            line = 1
+            lineStart = 0
+        }
+
+        if location >= lineStart {
+            let result = LineScanner.scan(text, from: lineStart, to: location)
+            line += result.lineBreaks
+            lineStart = result.lineStart
+        } else {
+            let newLineStart = LineScanner.lineStart(of: location, in: text)
+            line -= LineScanner.scan(text, from: newLineStart, to: lineStart).lineBreaks
+            lineStart = newLineStart
+        }
+        return (line, location - lineStart + 1)
     }
 }

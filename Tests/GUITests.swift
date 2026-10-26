@@ -37,6 +37,7 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     let bar: StatusBarView = ivar(wc, "statusBar")
     check("Statusleiste Kodierung", bar.encodingLabel.stringValue == "ANSI (Windows-1252)", bar.encodingLabel.stringValue)
     check("Statusleiste Zeilenende", bar.lineEndingLabel.stringValue == "Windows (CRLF)", bar.lineEndingLabel.stringValue)
+    check("Statusleiste Sprache .txt", bar.languageLabel.stringValue == "Nur Text", bar.languageLabel.stringValue)
     check("Statusleiste Position", bar.positionLabel.stringValue == "Zeile 1, Spalte 1", bar.positionLabel.stringValue)
     check("Fenstertitel", wc.window!.title == "ansi-test.txt", wc.window!.title)
     check("unverändert nach Öffnen", !doc.isDocumentEdited)
@@ -91,6 +92,53 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     let logText = (logDoc.windowControllers.first as! EditorWindowController).textView.string
     check(".LOG hängt Zeitstempel an", logText.hasPrefix(".LOG\nalt\n\n") && logText.hasSuffix("\n") && logText.count > 15, logText)
     check(".LOG als geändert markiert", logDoc.isDocumentEdited)
+
+    // Syntaxhervorhebung im Fenster
+    let swiftURL = dir.appendingPathComponent("beispiel.swift")
+    try! "import AppKit\nlet name = \"Notepad\" // Kommentar\n".data(using: .utf8)!.write(to: swiftURL)
+    let swiftDoc = try! TextDocument(contentsOf: swiftURL, ofType: "public.plain-text")
+    NSDocumentController.shared.addDocument(swiftDoc)
+    swiftDoc.makeWindowControllers(); swiftDoc.showWindows(); spin()
+    let swiftWC = swiftDoc.windowControllers.first as! EditorWindowController
+    let swiftBar: StatusBarView = ivar(swiftWC, "statusBar")
+    let lm = swiftWC.textView.layoutManager!
+    func color(at location: Int) -> NSColor? {
+        lm.temporaryAttribute(.foregroundColor, atCharacterIndex: location, effectiveRange: nil) as? NSColor
+    }
+    check("Sprache Swift erkannt", swiftBar.languageLabel.stringValue == "Swift", swiftBar.languageLabel.stringValue)
+    check("Keyword eingefärbt", color(at: 0) == TokenKind.keyword.color)
+    check("String eingefärbt", color(at: 25) == TokenKind.string.color)
+    check("Bezeichner nicht eingefärbt", color(at: 18) == nil)
+    check("Datei bleibt unverändert", !swiftDoc.isDocumentEdited)
+
+    swiftWC.textView.insertText("var ", replacementRange: NSRange(location: 0, length: 0)); spin()
+    check("Nach Tippen neu eingefärbt", color(at: 0) == TokenKind.keyword.color && color(at: 4) == TokenKind.keyword.color)
+
+    let plainItem = NSMenuItem(); plainItem.tag = 1
+    swiftDoc.changeSyntaxLanguage(plainItem); spin()
+    check("Nur Text: keine Farben", color(at: 0) == nil && swiftBar.languageLabel.stringValue == "Nur Text")
+    let autoItem = NSMenuItem(); autoItem.tag = 0
+    swiftDoc.changeSyntaxLanguage(autoItem); spin()
+    check("Automatisch: wieder Swift", color(at: 0) == TokenKind.keyword.color)
+
+    delegate.toggleSyntaxHighlighting(nil); spin()
+    check("Hervorhebung aus", color(at: 0) == nil)
+    delegate.toggleSyntaxHighlighting(nil); spin()
+    check("Hervorhebung wieder an", color(at: 0) == TokenKind.keyword.color)
+
+    let untitled = TextDocument(); NSDocumentController.shared.addDocument(untitled)
+    untitled.makeWindowControllers(); untitled.showWindows()
+    let untitledWC = untitled.windowControllers.first as! EditorWindowController
+    untitledWC.textView.insertText("#!/bin/bash\necho hi\n", replacementRange: NSRange(location: 0, length: 0)); spin()
+    let untitledBar: StatusBarView = ivar(untitledWC, "statusBar")
+    check("Unbenannt: Shebang erkannt", untitledBar.languageLabel.stringValue == "Shell", untitledBar.languageLabel.stringValue)
+
+    // Standard-Editor: nur Menü und Typliste prüfen, nichts am System ändern
+    let helpMenu = delegate.makeWindowMenu(at: 4)
+    check("Hilfe-Menü: Standard-Editor", helpMenu.items.first?.title == "Notepad als Standard-Texteditor verwenden", helpMenu.items.map(\.title))
+    check("Standard-Editor: Typliste", DefaultEditor.contentTypes.count >= 25 && !DefaultEditor.contentTypes.contains(.html))
+    let sprache = delegate.makeWindowMenu(at: 2).items.first { $0.title == "Sprache" }?.submenu
+    check("Format > Sprache", sprache?.items.count == SyntaxLanguage.all.count + 3)
 
     let pdfURL = dir.appendingPathComponent("druck.pdf")
     try? FileManager.default.removeItem(at: pdfURL)

@@ -13,6 +13,21 @@ final class TextDocument: NSDocument {
     private var loadedText = ""
     private var startsWithLog = false
 
+    /// nil = detect from file name; "" = plain text; otherwise a SyntaxLanguage id.
+    private(set) var languageChoice: String?
+
+    override var fileURL: URL? {
+        didSet { editor?.updateSyntaxLanguage() }
+    }
+
+    func syntaxLanguage(firstLine: String) -> SyntaxLanguage? {
+        switch languageChoice {
+        case nil: return SyntaxLanguage.detect(fileName: fileURL?.lastPathComponent, firstLine: firstLine)
+        case "": return nil
+        case let id?: return SyntaxLanguage.named(id)
+        }
+    }
+
     private var editor: EditorWindowController? {
         windowControllers.first as? EditorWindowController
     }
@@ -110,6 +125,24 @@ final class TextDocument: NSDocument {
         editor?.updateStatusBar()
     }
 
+    /// Tag 0 = automatic, 1 = plain text, 2 + n = SyntaxLanguage.all[n].
+    @objc func changeSyntaxLanguage(_ sender: NSMenuItem) {
+        switch sender.tag {
+        case 0: languageChoice = nil
+        case 1: languageChoice = ""
+        default: languageChoice = SyntaxLanguage.all[sender.tag - 2].id
+        }
+        editor?.updateSyntaxLanguage()
+    }
+
+    private var languageMenuTag: Int {
+        switch languageChoice {
+        case nil: return 0
+        case "": return 1
+        case let id?: return (SyntaxLanguage.all.firstIndex { $0.id == id } ?? -1) + 2
+        }
+    }
+
     override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
         if let menuItem = item as? NSMenuItem {
             switch menuItem.action {
@@ -118,6 +151,9 @@ final class TextDocument: NSDocument {
                 return true
             case #selector(changeLineEnding(_:)):
                 menuItem.state = menuItem.tag == lineEnding.rawValue ? .on : .off
+                return true
+            case #selector(changeSyntaxLanguage(_:)):
+                menuItem.state = menuItem.tag == languageMenuTag ? .on : .off
                 return true
             default:
                 break

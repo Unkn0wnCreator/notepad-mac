@@ -40,6 +40,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Preferences.showStatusBar.toggle()
     }
 
+    @objc func toggleSyntaxHighlighting(_ sender: Any?) {
+        Preferences.syntaxHighlighting.toggle()
+    }
+
+    @objc func toggleDefaultEditor(_ sender: Any?) {
+        DefaultEditor.runToggleDialog()
+    }
+
     @objc func showAbout(_ sender: Any?) {
         let credits = NSAttributedString(
             string: "Mac-Portierung des ReactOS Notepad.\nLizenz: LGPL-2.1-or-later",
@@ -54,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = Preferences.wordWrap ? .on : .off
         case #selector(toggleStatusBar(_:)):
             menuItem.state = Preferences.showStatusBar ? .on : .off
+        case #selector(toggleSyntaxHighlighting(_:)):
+            menuItem.state = Preferences.syntaxHighlighting ? .on : .off
+        case #selector(toggleDefaultEditor(_:)):
+            menuItem.state = DefaultEditor.isDefault ? .on : .off
         default:
             break
         }
@@ -137,9 +149,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             lineEndingItem.submenu!.addItem(item(lineEnding.displayName, #selector(TextDocument.changeLineEnding(_:)), tag: lineEnding.rawValue))
         }
         formatMenu.addItem(lineEndingItem)
+        let languageItem = item("Sprache", nil)
+        let languageMenu = NSMenu(title: "Sprache")
+        languageMenu.addItem(item("Automatisch (nach Dateiendung)", #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 0))
+        languageMenu.addItem(item("Nur Text", #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 1))
+        languageMenu.addItem(.separator())
+        for (index, language) in SyntaxLanguage.all.enumerated() {
+            languageMenu.addItem(item(language.name, #selector(TextDocument.changeSyntaxLanguage(_:)), tag: index + 2))
+        }
+        languageItem.submenu = languageMenu
+        formatMenu.addItem(languageItem)
 
         let viewMenu = submenu(in: mainMenu, "Darstellung")
         viewMenu.addItem(item("Statusleiste", #selector(toggleStatusBar(_:))))
+        viewMenu.addItem(item("Syntaxhervorhebung", #selector(toggleSyntaxHighlighting(_:))))
         viewMenu.addItem(.separator())
         viewMenu.addItem(item("Vergrößern", #selector(EditorWindowController.zoomIn(_:)), "+"))
         viewMenu.addItem(item("Verkleinern", #selector(EditorWindowController.zoomOut(_:)), "-"))
@@ -155,6 +178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NSApp.windowsMenu = windowMenu
 
         let helpMenu = submenu(in: mainMenu, "Hilfe")
+        helpMenu.addItem(item("Notepad als Standard-Texteditor verwenden", #selector(toggleDefaultEditor(_:))))
+        helpMenu.addItem(.separator())
         helpMenu.addItem(item("Über Notepad", #selector(showAbout(_:))))
         NSApp.helpMenu = helpMenu
 

@@ -34,3 +34,27 @@ func runCodecTests() {
     check("Offset Zeile 4", LineScanner.offset(ofLine: 4, in: s) == 16)
     check("Offset leere letzte Zeile", LineScanner.offset(ofLine: 2, in: "a\n") == 2)
 }
+
+func runPositionCacheTests() {
+    print("== Zeilen-Cache der Statusleiste")
+    // Random caret moves and edits must give the same result as a full scan.
+    var generator = SystemRandomNumberGenerator()
+    let pieces = ["a", "bc", "\n", "\r\n", "\r", "xyz", "\n\n"]
+    let text = NSMutableString(string: (0..<400).map { _ in pieces.randomElement(using: &generator)! }.joined())
+    var cache = LinePositionCache()
+    var mismatches = 0
+    for step in 0..<3000 {
+        if step % 7 == 0 {
+            let location = Int.random(in: 0...text.length, using: &generator)
+            let length = min(Int.random(in: 0...3, using: &generator), text.length - location)
+            text.replaceCharacters(in: NSRange(location: location, length: length),
+                                   with: pieces.randomElement(using: &generator)!)
+            cache.textChanged(at: location)
+        }
+        let location = Int.random(in: 0...text.length, using: &generator)
+        let cached = cache.position(of: location, in: text)
+        let full = LineScanner.position(of: location, in: text)
+        if cached != full { mismatches += 1 }
+    }
+    check("Cache stimmt mit vollständiger Zählung überein (3000 Schritte)", mismatches == 0, mismatches)
+}
