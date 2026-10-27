@@ -4,10 +4,13 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
-## Unveröffentlicht
+## 1.3.0 – 2026-10-27
 
 ### Hinzugefügt
 
+- Oberfläche auf Englisch: Menüs, Statusleiste, Dialoge und Meldungen erscheinen bei jeder
+  Systemsprache außer Deutsch auf Englisch (Statusleiste z. B. „Ln 1, Col 1“, Menü „File“ mit
+  „Exit“ wie im englischen Notepad). Bei deutscher Systemsprache bleibt alles wie bisher.
 - README: Hinweis, dass das Projekt mit KI gebaut ist (Claude Code, „vibe-coded“).
 
 ### Geändert

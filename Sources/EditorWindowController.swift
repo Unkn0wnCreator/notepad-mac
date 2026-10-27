@@ -268,10 +268,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     func updateStatusBar() {
         guard Preferences.showStatusBar, !isReplacingText else { return }
         let position = positionCache.position(of: textView.selectedRange().location, in: textView.plainText)
-        statusBar.positionLabel.stringValue = "Zeile \(position.line), Spalte \(position.column)"
+        statusBar.positionLabel.stringValue = L("Zeile %ld, Spalte %ld", position.line, position.column)
         statusBar.zoomLabel.stringValue = "\(zoomPercent) %"
         statusBar.languageLabel.stringValue = Preferences.syntaxHighlighting
-            ? highlighter.language?.name ?? "Nur Text" : "Nur Text"
+            ? highlighter.language.map { L($0.name) } ?? L("Nur Text") : L("Nur Text")
         if let textDocument {
             statusBar.lineEndingLabel.stringValue = textDocument.lineEnding.displayName
             statusBar.encodingLabel.stringValue = textDocument.encoding.displayName
@@ -371,11 +371,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         field.stringValue = String(currentLine)
 
         let alert = NSAlert()
-        alert.messageText = "Gehe zu Zeile"
-        alert.informativeText = "Zeilennummer (1–\(lineCount)):"
+        alert.messageText = L("Gehe zu Zeile")
+        alert.informativeText = L("Zeilennummer (1–%ld):", lineCount)
         alert.accessoryView = field
-        alert.addButton(withTitle: "Gehe zu")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: L("Gehe zu"))
+        alert.addButton(withTitle: L("Abbrechen"))
         alert.window.initialFirstResponder = field
 
         alert.beginSheetModal(for: window) { [weak self] response in
@@ -395,8 +395,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     private func showLineOutOfRange() {
         guard let window else { return }
         let alert = NSAlert()
-        alert.messageText = "Notepad – Gehe zu Zeile"
-        alert.informativeText = "Die angegebene Zeilennummer liegt außerhalb des gültigen Bereichs."
+        alert.messageText = L("Notepad – Gehe zu Zeile")
+        alert.informativeText = L("Die angegebene Zeilennummer liegt außerhalb des gültigen Bereichs.")
         alert.beginSheetModal(for: window)
     }
 

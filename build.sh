@@ -8,7 +8,7 @@ SDK=$(xcrun --show-sdk-path)
 SWIFTFLAGS=(-O -swift-version 5 -sdk "$SDK" -framework AppKit)
 
 rm -rf build
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/de.lproj" build/tmp
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/tmp
 
 for arch in arm64 x86_64; do
   clang -arch "$arch" -mmacosx-version-min=13.0 -isysroot "$SDK" -O2 -fobjc-arc \
@@ -19,7 +19,8 @@ done
 lipo -create -output "$APP/Contents/MacOS/Notepad" build/tmp/Notepad-arm64 build/tmp/Notepad-x86_64
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-touch "$APP/Contents/Resources/de.lproj/InfoPlist.strings"
+# UI languages: German (keys in the code) and English (Sources/Localization.swift).
+cp -R Resources/de.lproj Resources/en.lproj "$APP/Contents/Resources/"
 
 # App icon
 swiftc "${SWIFTFLAGS[@]}" -o build/tmp/make-icon Tools/make-icon.swift

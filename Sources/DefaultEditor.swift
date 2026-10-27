@@ -94,27 +94,27 @@ enum DefaultEditor {
     static func runToggleDialog() {
         let alert = NSAlert()
         if isDefault {
-            alert.messageText = "Textdateien wieder mit den vorherigen Apps öffnen?"
-            alert.informativeText = "Notepad ist zurzeit der Standard-Texteditor. Die vorher verwendeten Apps (z. B. TextEdit) werden wiederhergestellt."
-            alert.addButton(withTitle: "Zurückstellen")
+            alert.messageText = L("Textdateien wieder mit den vorherigen Apps öffnen?")
+            alert.informativeText = L("Notepad ist zurzeit der Standard-Texteditor. Die vorher verwendeten Apps (z. B. TextEdit) werden wiederhergestellt.")
+            alert.addButton(withTitle: L("Zurückstellen"))
         } else {
-            alert.messageText = "Notepad als Standard-Texteditor verwenden?"
-            var info = "Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen.\n\nmacOS fragt danach für jeden Dateityp einzeln nach, bitte jeweils bestätigen."
+            alert.messageText = L("Notepad als Standard-Texteditor verwenden?")
+            var info = L("Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen.\n\nmacOS fragt danach für jeden Dateityp einzeln nach, bitte jeweils bestätigen.")
             if !isInApplicationsFolder {
-                info += "\n\nTipp: Notepad liegt nicht im Ordner „Programme“, sondern in:\n"
+                info += L("\n\nTipp: Notepad liegt nicht im Ordner „Programme“, sondern in:\n")
                     + Bundle.main.bundleURL.deletingLastPathComponent().path
             }
             alert.informativeText = info
-            alert.addButton(withTitle: "Als Standard festlegen")
+            alert.addButton(withTitle: L("Als Standard festlegen"))
         }
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: L("Abbrechen"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         let failed = isDefault ? restore() : makeDefault()
         if !failed.isEmpty {
             let error = NSAlert()
             error.alertStyle = .warning
-            error.messageText = "Einige Dateitypen konnten nicht umgestellt werden."
+            error.messageText = L("Einige Dateitypen konnten nicht umgestellt werden.")
             error.informativeText = failed.map { $0.localizedDescription ?? $0.identifier }.joined(separator: "\n")
             error.runModal()
         }

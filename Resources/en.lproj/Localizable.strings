@@ -1,0 +1,107 @@
+/*
+ * Notepad für macOS – englische Oberflächentexte. Schlüssel = deutscher Text im Code (siehe
+ * Sources/Localization.swift); der Test prüft, dass jeder Schlüssel hier steht.
+ * LICENSE: LGPL-2.1-or-later
+ */
+
+/* Menus (macOS menu bar and the Windows-style menu bar in the window) */
+"Ablage" = "File";
+"Datei" = "File";
+"Bearbeiten" = "Edit";
+"Darstellung" = "View";
+"Ansicht" = "View";
+"Fenster" = "Window";
+"Hilfe" = "Help";
+"Dienste" = "Services";
+
+"Über Notepad" = "About Notepad";
+"Notepad ausblenden" = "Hide Notepad";
+"Andere ausblenden" = "Hide Others";
+"Alle einblenden" = "Show All";
+"Notepad beenden" = "Quit Notepad";
+"Beenden" = "Exit";
+
+"Neu" = "New";
+"Öffnen …" = "Open…";
+"Zuletzt benutzt" = "Open Recent";
+"Einträge löschen" = "Clear Menu";
+"Schließen" = "Close";
+"Sichern" = "Save";
+"Sichern unter …" = "Save As…";
+"Zurück zur letzten gesicherten Version" = "Revert to Saved";
+"Papierformat …" = "Page Setup…";
+"Drucken …" = "Print…";
+
+"Widerrufen" = "Undo";
+"Wiederholen" = "Redo";
+"Ausschneiden" = "Cut";
+"Kopieren" = "Copy";
+"Einsetzen" = "Paste";
+"Löschen" = "Delete";
+"Suchen …" = "Find…";
+"Weitersuchen" = "Find Next";
+"Vorheriges suchen" = "Find Previous";
+"Ersetzen …" = "Replace…";
+"Auswahl für Suche verwenden" = "Use Selection for Find";
+"Gehe zu Zeile …" = "Go To Line…";
+"Alles auswählen" = "Select All";
+"Uhrzeit/Datum" = "Time/Date";
+
+"Zeilenumbruch" = "Word Wrap";
+"Schrift …" = "Font…";
+"Kodierung" = "Encoding";
+"Zeilenende" = "Line Ending";
+"Sprache" = "Language";
+"Automatisch (nach Dateiendung)" = "Automatic (by File Type)";
+"Nur Text" = "Plain Text";
+
+"Statusleiste" = "Status Bar";
+"Syntaxhervorhebung" = "Syntax Highlighting";
+"Vergrößern" = "Zoom In";
+"Verkleinern" = "Zoom Out";
+"Originalgröße" = "Actual Size";
+"Vollbild" = "Full Screen";
+
+"Im Dock ablegen" = "Minimize";
+"Zoomen" = "Zoom";
+"Alle nach vorne bringen" = "Bring All to Front";
+
+"Notepad als Standard-Texteditor verwenden" = "Use Notepad as Default Text Editor";
+"Im Hintergrund bereithalten (schneller Start)" = "Keep Running in Background (Faster Start)";
+"Bei der Anmeldung starten" = "Open at Login";
+
+/* Status bar, encodings, line endings, languages */
+"Zeile %ld, Spalte %ld" = "Ln %ld, Col %ld";
+"UTF-8 mit BOM" = "UTF-8 with BOM";
+"Mac klassisch (CR)" = "Classic Mac (CR)";
+"INI / Konfiguration" = "INI / Config";
+"SSH-Konfiguration" = "SSH Config";
+"Ignore-Datei" = "Ignore File";
+"systemd-Unit" = "systemd Unit";
+
+/* Go to line */
+"Gehe zu Zeile" = "Go To Line";
+"Zeilennummer (1–%ld):" = "Line number (1–%ld):";
+"Gehe zu" = "Go To";
+"Abbrechen" = "Cancel";
+"Notepad – Gehe zu Zeile" = "Notepad – Go To Line";
+"Die angegebene Zeilennummer liegt außerhalb des gültigen Bereichs." = "The line number is beyond the total number of lines.";
+
+/* Saving and printing */
+"Der Text enthält Zeichen, die in %@ nicht gespeichert werden können." = "The text contains characters that cannot be saved in %@.";
+"Wähle unter „Format > Kodierung“ z. B. UTF-8 und sichere erneut." = "Choose an encoding such as UTF-8 under “Format > Encoding” and save again.";
+"Seite %ld" = "Page %ld";
+
+/* Default text editor */
+"Notepad als Standard-Texteditor verwenden?" = "Use Notepad as the default text editor?";
+"Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen.\n\nmacOS fragt danach für jeden Dateityp einzeln nach, bitte jeweils bestätigen." = "Text, code and scripts, JSON, XML, YAML, Markdown, CSV and log files will then open in Notepad on double-click. The same menu item changes it back.\n\nmacOS then asks for each file type separately, please confirm each time.";
+"\n\nTipp: Notepad liegt nicht im Ordner „Programme“, sondern in:\n" = "\n\nTip: Notepad is not in the Applications folder but in:\n";
+"Als Standard festlegen" = "Make Default";
+"Textdateien wieder mit den vorherigen Apps öffnen?" = "Open text files with the previous apps again?";
+"Notepad ist zurzeit der Standard-Texteditor. Die vorher verwendeten Apps (z. B. TextEdit) werden wiederhergestellt." = "Notepad is currently the default text editor. The apps used before (such as TextEdit) will be restored.";
+"Zurückstellen" = "Restore";
+"Einige Dateitypen konnten nicht umgestellt werden." = "Some file types could not be changed.";
+
+/* Login item, about */
+"Der Start bei der Anmeldung konnte nicht geändert werden." = "Open at login could not be changed.";
+"Mac-Portierung des ReactOS Notepad.\nLizenz: LGPL-2.1-or-later" = "Mac port of ReactOS Notepad.\nLicense: LGPL-2.1-or-later";

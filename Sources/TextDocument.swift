@@ -103,8 +103,8 @@ final class TextDocument: NSDocument {
             return try TextCodec.encode(currentText, encoding: encoding, lineEnding: lineEnding)
         } catch TextCodecError.unrepresentable(let encoding) {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteInapplicableStringEncodingError, userInfo: [
-                NSLocalizedDescriptionKey: "Der Text enthält Zeichen, die in \(encoding.displayName) nicht gespeichert werden können.",
-                NSLocalizedRecoverySuggestionErrorKey: "Wähle unter „Format > Kodierung“ z. B. UTF-8 und sichere erneut.",
+                NSLocalizedDescriptionKey: L("Der Text enthält Zeichen, die in %@ nicht gespeichert werden können.", encoding.displayName),
+                NSLocalizedRecoverySuggestionErrorKey: L("Wähle unter „Format > Kodierung“ z. B. UTF-8 und sichere erneut."),
             ])
         }
     }
@@ -205,7 +205,7 @@ final class PrintTextView: NSTextView {
     }
 
     override var pageFooter: NSAttributedString {
-        centered("Seite \(NSPrintOperation.current?.currentPage ?? 1)")
+        centered(L("Seite %ld", NSPrintOperation.current?.currentPage ?? 1))
     }
 
     private func centered(_ string: String) -> NSAttributedString {

@@ -6,7 +6,8 @@ in Swift/AppKit (plus etwas Objective-C für den Textspeicher). Schlicht, auf Ge
 getrimmt, mit Menüleiste im Fenster wie unter Windows und Syntaxhervorhebung für Code und
 Konfigurationsdateien.
 
-- Universal-App (Apple Silicon + Intel), ab macOS 13, Oberfläche auf Deutsch
+- Universal-App (Apple Silicon + Intel), ab macOS 13, Oberfläche auf Deutsch oder Englisch
+  (nach der Systemsprache)
 - Keine Abhängigkeiten, kein Netzwerkzugriff, ca. 1,5 MB
 - Öffnet auch Gigabyte-Dateien und bleibt dabei flüssig (siehe [Leistung](#leistung))
 
@@ -177,6 +178,7 @@ Versionen der verwendeten Actions.
 | `Sources/DefaultEditor.swift` | Standard-Texteditor festlegen/zurückstellen | – |
 | `Sources/AppDelegate.swift` | Menüs, Hintergrundbetrieb, Anmeldestart | `lang/de-DE.rc` |
 | `Sources/Preferences.swift` | Einstellungen | `settings.c` |
+| `Sources/Localization.swift`, `Resources/en.lproj/` | Deutsch/Englisch | `lang/en-US.rc` |
 | `Tools/make-icon.swift` | zeichnet das App-Icon beim Bauen | – |
 | `Tests/` | automatische Tests und Benchmarks | – |
 

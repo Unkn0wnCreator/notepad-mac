@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let menu = windowMenuTemplates[index].menu.copy() as! NSMenu
         if index == 0 {
             menu.addItem(.separator())
-            menu.addItem(item("Beenden", #selector(NSApplication.terminate(_:)), "q"))
+            menu.addItem(item(L("Beenden"), #selector(NSApplication.terminate(_:)), "q"))
         }
         return menu
     }
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
         } catch {
             let alert = NSAlert(error: error)
-            alert.messageText = "Der Start bei der Anmeldung konnte nicht geändert werden."
+            alert.messageText = L("Der Start bei der Anmeldung konnte nicht geändert werden.")
             alert.runModal()
         }
         if service.status == .requiresApproval {
@@ -110,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func showAbout(_ sender: Any?) {
         let credits = NSAttributedString(
-            string: "Mac-Portierung des ReactOS Notepad.\nLizenz: LGPL-2.1-or-later",
+            string: L("Mac-Portierung des ReactOS Notepad.\nLizenz: LGPL-2.1-or-later"),
             attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.labelColor])
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
@@ -138,29 +138,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     // MARK: - Menu
 
-    private func makeMainMenu() -> NSMenu {
+    /// Internal (not private) so the tests can build the menus in English, too.
+    func makeMainMenu() -> NSMenu {
         let mainMenu = NSMenu()
 
         let appMenu = submenu(in: mainMenu, "Notepad")
-        appMenu.addItem(item("Über Notepad", #selector(showAbout(_:))))
+        appMenu.addItem(item(L("Über Notepad"), #selector(showAbout(_:))))
         appMenu.addItem(.separator())
-        let services = item("Dienste", nil)
-        services.submenu = NSMenu(title: "Dienste")
+        let services = item(L("Dienste"), nil)
+        services.submenu = NSMenu(title: L("Dienste"))
         NSApp.servicesMenu = services.submenu
         appMenu.addItem(services)
         appMenu.addItem(.separator())
-        appMenu.addItem(item("Notepad ausblenden", #selector(NSApplication.hide(_:)), "h"))
-        appMenu.addItem(item("Andere ausblenden", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
-        appMenu.addItem(item("Alle einblenden", #selector(NSApplication.unhideAllApplications(_:))))
+        appMenu.addItem(item(L("Notepad ausblenden"), #selector(NSApplication.hide(_:)), "h"))
+        appMenu.addItem(item(L("Andere ausblenden"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
+        appMenu.addItem(item(L("Alle einblenden"), #selector(NSApplication.unhideAllApplications(_:))))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("Notepad beenden", #selector(NSApplication.terminate(_:)), "q"))
+        appMenu.addItem(item(L("Notepad beenden"), #selector(NSApplication.terminate(_:)), "q"))
 
-        let fileMenu = submenu(in: mainMenu, "Ablage")
-        fileMenu.addItem(item("Neu", #selector(NSDocumentController.newDocument(_:)), "n"))
-        fileMenu.addItem(item("Öffnen …", #selector(NSDocumentController.openDocument(_:)), "o"))
-        let recent = item("Zuletzt benutzt", nil)
-        let recentMenu = NSMenu(title: "Zuletzt benutzt")
-        recentMenu.addItem(item("Einträge löschen", #selector(NSDocumentController.clearRecentDocuments(_:))))
+        let fileMenu = submenu(in: mainMenu, L("Ablage"))
+        fileMenu.addItem(item(L("Neu"), #selector(NSDocumentController.newDocument(_:)), "n"))
+        fileMenu.addItem(item(L("Öffnen …"), #selector(NSDocumentController.openDocument(_:)), "o"))
+        let recent = item(L("Zuletzt benutzt"), nil)
+        let recentMenu = NSMenu(title: L("Zuletzt benutzt"))
+        recentMenu.addItem(item(L("Einträge löschen"), #selector(NSDocumentController.clearRecentDocuments(_:))))
         let setMenuName = NSSelectorFromString("_setMenuName:")
         if recentMenu.responds(to: setMenuName) {
             recentMenu.perform(setMenuName, with: "NSRecentDocumentsMenu")
@@ -168,93 +169,93 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         recent.submenu = recentMenu
         fileMenu.addItem(recent)
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Schließen", #selector(NSWindow.performClose(_:)), "w"))
-        fileMenu.addItem(item("Sichern", #selector(NSDocument.save(_:)), "s"))
-        fileMenu.addItem(item("Sichern unter …", #selector(NSDocument.saveAs(_:)), "s", [.command, .shift]))
-        fileMenu.addItem(item("Zurück zur letzten gesicherten Version", #selector(NSDocument.revertToSaved(_:))))
+        fileMenu.addItem(item(L("Schließen"), #selector(NSWindow.performClose(_:)), "w"))
+        fileMenu.addItem(item(L("Sichern"), #selector(NSDocument.save(_:)), "s"))
+        fileMenu.addItem(item(L("Sichern unter …"), #selector(NSDocument.saveAs(_:)), "s", [.command, .shift]))
+        fileMenu.addItem(item(L("Zurück zur letzten gesicherten Version"), #selector(NSDocument.revertToSaved(_:))))
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Papierformat …", #selector(NSDocument.runPageLayout(_:)), "p", [.command, .shift]))
-        fileMenu.addItem(item("Drucken …", #selector(NSDocument.printDocument(_:)), "p"))
+        fileMenu.addItem(item(L("Papierformat …"), #selector(NSDocument.runPageLayout(_:)), "p", [.command, .shift]))
+        fileMenu.addItem(item(L("Drucken …"), #selector(NSDocument.printDocument(_:)), "p"))
 
-        let editMenu = submenu(in: mainMenu, "Bearbeiten")
-        editMenu.addItem(item("Widerrufen", Selector(("undo:")), "z"))
-        editMenu.addItem(item("Wiederholen", Selector(("redo:")), "z", [.command, .shift]))
+        let editMenu = submenu(in: mainMenu, L("Bearbeiten"))
+        editMenu.addItem(item(L("Widerrufen"), Selector(("undo:")), "z"))
+        editMenu.addItem(item(L("Wiederholen"), Selector(("redo:")), "z", [.command, .shift]))
         editMenu.addItem(.separator())
-        editMenu.addItem(item("Ausschneiden", #selector(NSText.cut(_:)), "x"))
-        editMenu.addItem(item("Kopieren", #selector(NSText.copy(_:)), "c"))
-        editMenu.addItem(item("Einsetzen", #selector(NSText.paste(_:)), "v"))
-        editMenu.addItem(item("Löschen", #selector(NSText.delete(_:))))
+        editMenu.addItem(item(L("Ausschneiden"), #selector(NSText.cut(_:)), "x"))
+        editMenu.addItem(item(L("Kopieren"), #selector(NSText.copy(_:)), "c"))
+        editMenu.addItem(item(L("Einsetzen"), #selector(NSText.paste(_:)), "v"))
+        editMenu.addItem(item(L("Löschen"), #selector(NSText.delete(_:))))
         editMenu.addItem(.separator())
         let find = #selector(NSResponder.performTextFinderAction(_:))
-        editMenu.addItem(item("Suchen …", find, "f", tag: NSTextFinder.Action.showFindInterface.rawValue))
-        editMenu.addItem(item("Weitersuchen", find, "g", tag: NSTextFinder.Action.nextMatch.rawValue))
-        editMenu.addItem(item("Vorheriges suchen", find, "g", [.command, .shift], tag: NSTextFinder.Action.previousMatch.rawValue))
-        editMenu.addItem(item("Ersetzen …", find, "f", [.command, .option], tag: NSTextFinder.Action.showReplaceInterface.rawValue))
-        editMenu.addItem(item("Auswahl für Suche verwenden", find, "e", tag: NSTextFinder.Action.setSearchString.rawValue))
-        editMenu.addItem(item("Gehe zu Zeile …", #selector(EditorWindowController.goToLine(_:)), "l"))
+        editMenu.addItem(item(L("Suchen …"), find, "f", tag: NSTextFinder.Action.showFindInterface.rawValue))
+        editMenu.addItem(item(L("Weitersuchen"), find, "g", tag: NSTextFinder.Action.nextMatch.rawValue))
+        editMenu.addItem(item(L("Vorheriges suchen"), find, "g", [.command, .shift], tag: NSTextFinder.Action.previousMatch.rawValue))
+        editMenu.addItem(item(L("Ersetzen …"), find, "f", [.command, .option], tag: NSTextFinder.Action.showReplaceInterface.rawValue))
+        editMenu.addItem(item(L("Auswahl für Suche verwenden"), find, "e", tag: NSTextFinder.Action.setSearchString.rawValue))
+        editMenu.addItem(item(L("Gehe zu Zeile …"), #selector(EditorWindowController.goToLine(_:)), "l"))
         editMenu.addItem(.separator())
-        editMenu.addItem(item("Alles auswählen", #selector(NSText.selectAll(_:)), "a"))
+        editMenu.addItem(item(L("Alles auswählen"), #selector(NSText.selectAll(_:)), "a"))
         let f5 = String(Character(UnicodeScalar(NSF5FunctionKey)!))
-        editMenu.addItem(item("Uhrzeit/Datum", #selector(EditorWindowController.insertTimeDate(_:)), f5, []))
+        editMenu.addItem(item(L("Uhrzeit/Datum"), #selector(EditorWindowController.insertTimeDate(_:)), f5, []))
 
         let formatMenu = submenu(in: mainMenu, "Format")
-        formatMenu.addItem(item("Zeilenumbruch", #selector(toggleWordWrap(_:))))
-        formatMenu.addItem(item("Schrift …", #selector(EditorWindowController.showFonts(_:)), "t"))
+        formatMenu.addItem(item(L("Zeilenumbruch"), #selector(toggleWordWrap(_:))))
+        formatMenu.addItem(item(L("Schrift …"), #selector(EditorWindowController.showFonts(_:)), "t"))
         formatMenu.addItem(.separator())
-        let encodingItem = item("Kodierung", nil)
-        encodingItem.submenu = NSMenu(title: "Kodierung")
+        let encodingItem = item(L("Kodierung"), nil)
+        encodingItem.submenu = NSMenu(title: L("Kodierung"))
         for encoding in TextEncoding.allCases {
             encodingItem.submenu!.addItem(item(encoding.displayName, #selector(TextDocument.changeTextEncoding(_:)), tag: encoding.rawValue))
         }
         formatMenu.addItem(encodingItem)
-        let lineEndingItem = item("Zeilenende", nil)
-        lineEndingItem.submenu = NSMenu(title: "Zeilenende")
+        let lineEndingItem = item(L("Zeilenende"), nil)
+        lineEndingItem.submenu = NSMenu(title: L("Zeilenende"))
         for lineEnding in LineEnding.allCases {
             lineEndingItem.submenu!.addItem(item(lineEnding.displayName, #selector(TextDocument.changeLineEnding(_:)), tag: lineEnding.rawValue))
         }
         formatMenu.addItem(lineEndingItem)
-        let languageItem = item("Sprache", nil)
-        let languageMenu = NSMenu(title: "Sprache")
-        languageMenu.addItem(item("Automatisch (nach Dateiendung)", #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 0))
-        languageMenu.addItem(item("Nur Text", #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 1))
+        let languageItem = item(L("Sprache"), nil)
+        let languageMenu = NSMenu(title: L("Sprache"))
+        languageMenu.addItem(item(L("Automatisch (nach Dateiendung)"), #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 0))
+        languageMenu.addItem(item(L("Nur Text"), #selector(TextDocument.changeSyntaxLanguage(_:)), tag: 1))
         languageMenu.addItem(.separator())
         for (index, language) in SyntaxLanguage.all.enumerated() {
-            languageMenu.addItem(item(language.name, #selector(TextDocument.changeSyntaxLanguage(_:)), tag: index + 2))
+            languageMenu.addItem(item(L(language.name), #selector(TextDocument.changeSyntaxLanguage(_:)), tag: index + 2))
         }
         languageItem.submenu = languageMenu
         formatMenu.addItem(languageItem)
 
-        let viewMenu = submenu(in: mainMenu, "Darstellung")
-        viewMenu.addItem(item("Statusleiste", #selector(toggleStatusBar(_:))))
-        viewMenu.addItem(item("Syntaxhervorhebung", #selector(toggleSyntaxHighlighting(_:))))
+        let viewMenu = submenu(in: mainMenu, L("Darstellung"))
+        viewMenu.addItem(item(L("Statusleiste"), #selector(toggleStatusBar(_:))))
+        viewMenu.addItem(item(L("Syntaxhervorhebung"), #selector(toggleSyntaxHighlighting(_:))))
         viewMenu.addItem(.separator())
-        viewMenu.addItem(item("Vergrößern", #selector(EditorWindowController.zoomIn(_:)), "+"))
-        viewMenu.addItem(item("Verkleinern", #selector(EditorWindowController.zoomOut(_:)), "-"))
-        viewMenu.addItem(item("Originalgröße", #selector(EditorWindowController.resetZoom(_:)), "0"))
+        viewMenu.addItem(item(L("Vergrößern"), #selector(EditorWindowController.zoomIn(_:)), "+"))
+        viewMenu.addItem(item(L("Verkleinern"), #selector(EditorWindowController.zoomOut(_:)), "-"))
+        viewMenu.addItem(item(L("Originalgröße"), #selector(EditorWindowController.resetZoom(_:)), "0"))
         viewMenu.addItem(.separator())
-        viewMenu.addItem(item("Vollbild", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]))
+        viewMenu.addItem(item(L("Vollbild"), #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]))
 
-        let windowMenu = submenu(in: mainMenu, "Fenster")
-        windowMenu.addItem(item("Im Dock ablegen", #selector(NSWindow.performMiniaturize(_:)), "m"))
-        windowMenu.addItem(item("Zoomen", #selector(NSWindow.performZoom(_:))))
+        let windowMenu = submenu(in: mainMenu, L("Fenster"))
+        windowMenu.addItem(item(L("Im Dock ablegen"), #selector(NSWindow.performMiniaturize(_:)), "m"))
+        windowMenu.addItem(item(L("Zoomen"), #selector(NSWindow.performZoom(_:))))
         windowMenu.addItem(.separator())
-        windowMenu.addItem(item("Alle nach vorne bringen", #selector(NSApplication.arrangeInFront(_:))))
+        windowMenu.addItem(item(L("Alle nach vorne bringen"), #selector(NSApplication.arrangeInFront(_:))))
         NSApp.windowsMenu = windowMenu
 
-        let helpMenu = submenu(in: mainMenu, "Hilfe")
-        helpMenu.addItem(item("Notepad als Standard-Texteditor verwenden", #selector(toggleDefaultEditor(_:))))
-        helpMenu.addItem(item("Im Hintergrund bereithalten (schneller Start)", #selector(toggleKeepRunning(_:))))
-        helpMenu.addItem(item("Bei der Anmeldung starten", #selector(toggleLaunchAtLogin(_:))))
+        let helpMenu = submenu(in: mainMenu, L("Hilfe"))
+        helpMenu.addItem(item(L("Notepad als Standard-Texteditor verwenden"), #selector(toggleDefaultEditor(_:))))
+        helpMenu.addItem(item(L("Im Hintergrund bereithalten (schneller Start)"), #selector(toggleKeepRunning(_:))))
+        helpMenu.addItem(item(L("Bei der Anmeldung starten"), #selector(toggleLaunchAtLogin(_:))))
         helpMenu.addItem(.separator())
-        helpMenu.addItem(item("Über Notepad", #selector(showAbout(_:))))
+        helpMenu.addItem(item(L("Über Notepad"), #selector(showAbout(_:))))
         NSApp.helpMenu = helpMenu
 
         windowMenuTemplates = [
-            ("Datei", fileMenu),
-            ("Bearbeiten", editMenu),
+            (L("Datei"), fileMenu),
+            (L("Bearbeiten"), editMenu),
             ("Format", formatMenu),
-            ("Ansicht", viewMenu),
-            ("Hilfe", helpMenu),
+            (L("Ansicht"), viewMenu),
+            (L("Hilfe"), helpMenu),
         ]
 
         return mainMenu

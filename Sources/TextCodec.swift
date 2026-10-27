@@ -14,7 +14,7 @@ enum TextEncoding: Int, CaseIterable {
     var displayName: String {
         switch self {
         case .utf8: return "UTF-8"
-        case .utf8BOM: return "UTF-8 mit BOM"
+        case .utf8BOM: return L("UTF-8 mit BOM")
         case .utf16LE: return "UTF-16 LE"
         case .utf16BE: return "UTF-16 BE"
         case .ansi: return "ANSI (Windows-1252)"
@@ -37,7 +37,7 @@ enum LineEnding: Int, CaseIterable {
         switch self {
         case .crlf: return "Windows (CRLF)"
         case .lf: return "Unix (LF)"
-        case .cr: return "Mac klassisch (CR)"
+        case .cr: return L("Mac klassisch (CR)")
         }
     }
 }

@@ -18,6 +18,9 @@ enum TestMain {
         UserDefaults.standard.removePersistentDomain(forName: defaultsDomain)
         defer { UserDefaults.standard.removePersistentDomain(forName: defaultsDomain) }
 
+        // The tests compare German UI texts, whatever the language of the machine.
+        Localization.table = [:]
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -34,6 +37,7 @@ enum TestMain {
         runIncrementalSyntaxTests()
         runFastUTFTests()
         runGapBufferTests()
+        runLocalizationTests(delegate: delegate)
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
         if skipPerformance {
             print("== Leistung übersprungen (NOTEPAD_SKIP_PERF=1)")

@@ -33,7 +33,11 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
 - Größere, klar abgrenzbare Teilaufgaben können parallel von Subagents erledigt werden, jeweils in
   einem eigenen `git worktree` (`../notepad-mac-<thema>`, Branch `agent/<thema>`), danach mergen
   und Worktree/Branch löschen. Messungen sind währenddessen verrauscht (CPU-Last).
-- Oberflächentexte auf Deutsch, Code-Kommentare auf Englisch. Jede Quelldatei beginnt mit dem
+- **Oberflächentexte zweisprachig**: im Code auf Deutsch in `L("…")` (bzw. `L("… %ld …", wert)`),
+  dazu die englische Zeile in `Resources/en.lproj/Localizable.strings` (Schlüssel = deutscher
+  Text). Keine String-Interpolation im Schlüssel. Der Test (`Tests/LocalizationTests.swift`) prüft
+  Vollständigkeit und Platzhalter. Deutsch bei deutscher Systemsprache, sonst Englisch.
+- Code-Kommentare auf Englisch. Jede Quelldatei beginnt mit dem
   Kopfkommentar inkl. `LICENSE: LGPL-2.1-or-later`.
 - Tests dürfen nie `DefaultEditor.makeDefault`/`restore` aufrufen – das ändert echte
   Systemeinstellungen des Benutzers.
@@ -68,6 +72,9 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
   `LSSetDefaultRoleHandlerForContentType`. macOS fragt trotzdem pro Dateityp nach – eine einzige
   Bestätigung für alle Typen ist laut Benutzer nicht möglich.
 - `Sources/Preferences.swift` – `UserDefaults`, Änderungen per `Preferences.didChange` an alle Fenster.
+- `Sources/Localization.swift` – `L(_:)`: deutscher Text = Schlüssel, Englisch aus
+  `Resources/en.lproj/Localizable.strings` (`build.sh` kopiert `Resources/*.lproj`). Die Tests
+  setzen `Localization.table = [:]` und vergleichen deutsche Texte.
 - Hintergrundbetrieb: `AppDelegate` schaltet die automatische Beendigung ab, solange
   „Im Hintergrund bereithalten“ an ist; `EditorWindowController.prepareSpare()/make(text:)` halten ein
   fertiges Fenster vor (`TextDocument.showWindows` bereitet das nächste vor).

@@ -1,0 +1,3 @@
+/* Notepad für macOS – englische Info.plist-Texte. LICENSE: LGPL-2.1-or-later */
+"Textdokument" = "Text Document";
+NSHumanReadableCopyright = "Based on ReactOS Notepad – LGPL-2.1-or-later";
