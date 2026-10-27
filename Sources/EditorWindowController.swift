@@ -19,6 +19,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     private var highlighter: SyntaxHighlighter!
     private var positionCache = LinePositionCache()
     private var widthUpdatePending = false
+    private var isReplacingText = false
 
     private static var cascadePoint: NSPoint?
     private static var spare: EditorWindowController?
@@ -265,7 +266,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
     }
 
     func updateStatusBar() {
-        guard Preferences.showStatusBar else { return }
+        guard Preferences.showStatusBar, !isReplacingText else { return }
         let position = positionCache.position(of: textView.selectedRange().location, in: textView.plainText)
         statusBar.positionLabel.stringValue = "Zeile \(position.line), Spalte \(position.column)"
         statusBar.zoomLabel.stringValue = "\(zoomPercent) %"
@@ -281,11 +282,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     /// Decoded files arrive as a GapBufferString, which the storage adopts without copying.
     private func setText(_ text: NSString) {
+        isReplacingText = true
+        defer { isReplacingText = false }
         if let gapBuffer = text as? GapBufferString, let storage = textView.textStorage as? PlainTextStorage {
             storage.adoptText(gapBuffer)
         } else {
             textView.string = text as String
         }
+        // Replacing the text leaves the caret at the end; move it to the start right away, or
+        // the status bar would count every line of the file first (1.2 s for 1 GB).
+        positionCache = LinePositionCache()
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
     }
 
     func replaceText(_ text: NSString) {
