@@ -93,8 +93,12 @@ Gemessen auf Apple Silicon (Release-Build):
 | Tastendruck in 1 GB Datei, auch am Anfang (nach dem ersten an dieser Stelle) | ca. 1 ms (vorher bis 500 ms) |
 | Speicher für 1 GB ASCII- oder Latin-1-Text | ca. 1 GB (vorher 1,4–2,9 GB) |
 | Längste Blockierung beim Einfärben von 1–3 MB Code | ca. 15 ms |
+| Zerlegen in Tokens: Programmiersprachen (eigener Lexer) | ca. 250–330 MB/s (vorher Regex: 3–13 MB/s) |
+| Zerlegen in Tokens: HTML, CSS, YAML … (Regex) | ca. 5–20 MB/s |
 
-Wie das erreicht wird: Die Datei wird im Hintergrund in Tokens zerlegt, eingefärbt wird nur der
+Wie das erreicht wird: Die Datei wird im Hintergrund in Tokens zerlegt – für Programmiersprachen
+von einem handgeschriebenen Lexer direkt auf dem UTF-16-Puffer, für Auszeichnungs- und
+Konfigurationsformate per Regex mit möglichst wenigen Capture-Gruppen. Eingefärbt wird nur der
 sichtbare Bereich (plus Puffer) und beim Scrollen der Rest. Die Statusleiste zählt Zeilen ab der
 letzten bekannten Cursorposition statt jedes Mal ab Dateianfang. Der Text liegt in einem
 Lückenpuffer (Gap Buffer): Eingaben verschieben nicht mehr den ganzen Rest der Datei, und Text aus
@@ -104,7 +108,7 @@ Latin-1-Zeichen braucht nur ein Byte pro Zeichen.
 
 ```sh
 ./build.sh   # baut build/Notepad.app
-./test.sh    # 136 Tests: Datei-Logik, Zeilenzählung, Syntax, Oberfläche (öffnet kurz Fenster)
+./test.sh    # 220 Tests: Datei-Logik, Zeilenzählung, Syntax, Lexer, Oberfläche (öffnet kurz Fenster)
 ```
 
 ### Aufbau
@@ -115,6 +119,8 @@ Latin-1-Zeichen braucht nur ein Byte pro Zeichen.
 | `Sources/TextDocument.swift` | Öffnen, Speichern, Drucken, Kodierung/Sprache je Dokument | `dialog.c`, `printing.c` |
 | `Sources/EditorWindowController.swift` | Fenster, Editor, Menü- und Statusleiste | `main.c`, `dialog.c` |
 | `Sources/SyntaxHighlighter.swift` | Sprachen, Erkennung, Einfärben | – |
+| `Sources/Lexer.swift` | schneller Lexer für die Programmiersprachen | – |
+| `Sources/RegexRules.swift` | Regex-Regeln mit wenigen Capture-Gruppen kombinieren | – |
 | `Sources/DefaultEditor.swift` | Standard-Texteditor festlegen/zurückstellen | – |
 | `Sources/AppDelegate.swift` | Menüs | `lang/de-DE.rc` |
 | `Sources/Preferences.swift` | Einstellungen | `settings.c` |

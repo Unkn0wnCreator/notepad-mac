@@ -41,6 +41,10 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
   `LineScanner` und `LinePositionCache` für Zeile/Spalte.
 - `Sources/SyntaxHighlighter.swift` – `SyntaxLanguage` (Definitionen + Erkennung) und
   `SyntaxHighlighter` (Hintergrund-Tokenisierung, Einfärben des sichtbaren Bereichs).
+- `Sources/Lexer.swift` – handgeschriebener Lexer (`LexerSpec` + eine Scan-Schleife über den
+  UTF-16-Puffer) für die Programmiersprachen; bildet die früheren Regex-Regeln exakt nach.
+- `Sources/RegexRules.swift` – `RegexRulePlan`: kombiniert die Regeln der übrigen Sprachen mit
+  möglichst wenigen Capture-Gruppen (Analyse der möglichen ersten Zeichen jeder Regel).
 - `Sources/DefaultEditor.swift` – Standard-App für Texttypen setzen/zurückstellen.
 - `Sources/Preferences.swift` – `UserDefaults`, Änderungen per `Preferences.didChange` an alle Fenster.
 
@@ -57,9 +61,15 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
 
 ## Fallstricke
 
-- **Sprachdefinitionen**: Alle Regeln einer Sprache werden zu einer Alternation verbunden; die
-  Gruppennummer bestimmt die Farbe. Muster dürfen daher **keine eigenen Capture-Gruppen** haben
-  (nur `(?:…)`) und nie leer matchen. Reihenfolge = Priorität bei gleicher Startposition.
+- **Sprachdefinitionen**: Alle Regeln einer Sprache werden zu einer Alternation verbunden;
+  Capture-Gruppe bzw. erstes Zeichen des Treffers bestimmen die Farbe (`RegexRulePlan`). Muster
+  dürfen daher **keine eigenen Capture-Gruppen** haben (nur `(?:…)`) und nie leer matchen.
+  Reihenfolge = Priorität bei gleicher Startposition. ICU wird pro Capture-Gruppe langsamer, ab
+  der siebten sprunghaft – der Plan legt Regeln gleicher Art zusammen, wo das sicher ist.
+- **Lexer-Sprachen** (`lexer: LexerSpec(…)`): Änderungen an den Regeln in `Lexer.swift` und in
+  der eingefrorenen Regex-Kopie in `Tests/LexerTests.swift` gemeinsam machen; der Test vergleicht
+  beide. Der Lexer darf keinen Zustand zwischen Lexemen halten (Neustart an jedem Token-Ende für
+  das inkrementelle Einfärben), nur wenige Zeichen zurückschauen (`^`, `\b`, Lookbehind).
 - **Raw-Strings in Swift**: `#"…"#` endet bei `"#`, und `#"""` öffnet einen mehrzeiligen String.
   Muster mit `"""` als `"{3}` schreiben, Muster mit `"#` mit mehr Rauten (`##"…"##`).
 - Kompiliert wird im Swift-5-Modus (`-swift-version 5`); im Swift-6-Modus brechen

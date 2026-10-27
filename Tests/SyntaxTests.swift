@@ -164,4 +164,23 @@ func runIncrementalSyntaxTests() {
     }
     check("Inkrementell = vollständig (\(SyntaxLanguage.all.count) Sprachen × 60 Runden)", mismatches.isEmpty,
           Array(Set(mismatches)).sorted())
+
+    // A window without any lexeme near its end (prose) must not cut off the tokens after it.
+    let markdown = SyntaxLanguage.named("markdown")!
+    let prose = NSMutableString(string: "<!-- a -->\n" + String(repeating: "plain words\n", count: 300) + "\n<!-- b -->\n")
+    let before = markdown.tokens(in: prose)!
+    prose.insert("x", at: 1500)
+    let proseEdit = SyntaxEdit(editedRange: NSRange(location: 1500, length: 1), delta: 1)
+    let prosePlan = SyntaxLanguage.rescanPlan(old: before, text: prose, edit: proseEdit, windowSize: 200)
+    let proseResult = markdown.retokenize(window: prose.substring(with: prosePlan.window) as NSString,
+                                          windowStart: prosePlan.window.location, documentLength: prose.length,
+                                          restart: prosePlan.restart, old: before, prefixCount: prosePlan.prefixCount,
+                                          edit: proseEdit, cancel: nil)
+    var proseOK = false
+    switch proseResult {
+    case .needsMoreText: proseOK = true
+    case .tokens(let tokens): proseOK = tokens == markdown.tokens(in: prose)!
+    case .cancelled: break
+    }
+    check("Inkrementell: Fenster ohne Tokens am Ende verliert nichts", proseOK)
 }

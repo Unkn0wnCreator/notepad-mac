@@ -23,6 +23,25 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
   `NSMutableAttributedString`, Test mit echter Textansicht (Eingabe, Löschen, Rückgängig,
   Eingabemethode) und Benchmark 200 MB gegen den alten Textspeicher
   (1 GB mit `NOTEPAD_BIG_BENCH=1 ./test.sh`).
+- Syntaxhervorhebung der Programmiersprachen (Swift, C/C++/Objective-C, Java, Kotlin, C#, Go, Rust,
+  JavaScript/TypeScript, Python, Shell) mit einem handgeschriebenen Lexer statt eines großen
+  regulären Ausdrucks: 20- bis 80-mal schneller (3 MB Swift: ca. 500 ms → 10 ms), gleiche Farben.
+- Übrige Sprachen (HTML, CSS, YAML …): Regeln werden mit möglichst wenigen Capture-Gruppen
+  kombiniert, was ICU deutlich beschleunigt (bis ca. 3×, z. B. HTML ca. 300 → 150 ms/MB).
+
+### Behoben
+
+- Zeichenliterale mit Escape (`'\n'`) endeten erst beim letzten Apostroph der nächsten acht Zeichen,
+  sodass z. B. `'\n', q = '` als ein Literal gefärbt wurde. Jetzt endet das Literal am ersten.
+- Nach einer Änderung konnte die Hervorhebung hinter der Stelle verschwinden, wenn der neu
+  analysierte Ausschnitt am Ende keine Tokens enthielt (z. B. Fließtext in Markdown oder XML).
+  Dann wird jetzt weiter bzw. der ganze Text analysiert.
+
+### Tests
+
+- Lexer-Tests: Vergleich mit den bisherigen Regex-Definitionen an Beispielcode und Zufallstexten
+  (inkl. Unicode-Randfällen), Geschwindigkeit je Sprache (mindestens 5× schneller als vorher).
+- Regex-Sprachen: gleiche Tokens mit wenigen wie mit einer Gruppe pro Regel, Zeit vorher/nachher.
 
 ## 1.1.0 – 2026-10-26
 

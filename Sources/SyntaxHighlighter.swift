@@ -101,17 +101,19 @@ final class SyntaxLanguage {
     let extensions: Set<String>
     let fileNames: Set<String>
 
-    private let pattern: String
     private let options: NSRegularExpression.Options
-    /// Kind per capture group; nil marks the identifier group, classified by word lists.
-    private let kinds: [TokenKind?]
-    private let identifierGroup: Int?
+    /// Pattern and how a match maps to its kind (see `RegexRulePlan`).
+    private let plan: RegexRulePlan
+    private let rules: [(TokenKind, String)]
     private let keywords: Set<String>
     private let types: Set<String>
     private let maxWordLength: Int
     private let capitalizedTypes: Bool
     private let typeSuffix: String?
     private let caseInsensitive: Bool
+    /// Hand-written lexer (programming languages); the others use the regex.
+    private let lexer: LexerSpec?
+    private let lexerWords: LexerWords?
 
     private let lock = NSLock()
     private var compiled: NSRegularExpression?
@@ -122,9 +124,13 @@ final class SyntaxLanguage {
     ///
     /// Words are not matched by huge regex alternations: one identifier rule is appended and
     /// each word is looked up in `keywords`/`types`, which is several times faster.
+    ///
+    /// With a `lexer` the rules are ignored (pass none): `Lexer` scans with the same semantics
+    /// 20–80× faster than the regex did. Words are classified the same way.
     init(id: String, name: String, extensions: [String], fileNames: [String] = [],
          caseInsensitive: Bool = false, keywords: String = "", types: String = "",
-         capitalizedTypes: Bool = false, typeSuffix: String? = nil, rules: [(TokenKind, String)]) {
+         capitalizedTypes: Bool = false, typeSuffix: String? = nil, lexer: LexerSpec? = nil,
+         rules: [(TokenKind, String)] = [], optimizeGroups: Bool = true) {
         self.id = id
         self.name = name
         self.extensions = Set(extensions)
@@ -138,18 +144,18 @@ final class SyntaxLanguage {
         maxWordLength = (self.keywords.union(self.types).map { ($0 as NSString).length }.max() ?? 0)
         self.capitalizedTypes = capitalizedTypes
         self.typeSuffix = typeSuffix
+        precondition(lexer == nil || !caseInsensitive, "the lexer only supports case-sensitive languages")
+        self.lexer = lexer
+        lexerWords = lexer == nil ? nil : LexerWords(keywords: self.keywords, types: self.types,
+                                                     capitalizedTypes: capitalizedTypes, typeSuffix: typeSuffix)
 
-        var patterns = rules.map(\.1)
-        var kinds: [TokenKind?] = rules.map(\.0)
+        self.rules = rules
+        var planned: [(kind: TokenKind?, pattern: String)] = rules.map { ($0.0, $0.1) }
         if !self.keywords.isEmpty || !self.types.isEmpty || capitalizedTypes || typeSuffix != nil {
-            patterns.append("[A-Za-z_][A-Za-z0-9_]*")
-            kinds.append(nil)
-            identifierGroup = kinds.count
-        } else {
-            identifierGroup = nil
+            planned.append((nil, "[A-Za-z_][A-Za-z0-9_]*"))
         }
-        self.kinds = kinds
-        pattern = patterns.map { "(\($0))" }.joined(separator: "|")
+        plan = RegexRulePlan(rules: planned, caseInsensitive: caseInsensitive,
+                             optimize: optimizeGroups)
         var options: NSRegularExpression.Options = [.anchorsMatchLines]
         if caseInsensitive { options.insert(.caseInsensitive) }
         self.options = options
@@ -160,7 +166,7 @@ final class SyntaxLanguage {
         lock.lock()
         defer { lock.unlock() }
         if let compiled { return compiled }
-        let regex = try! NSRegularExpression(pattern: pattern, options: options)
+        let regex = try! NSRegularExpression(pattern: plan.pattern, options: options)
         compiled = regex
         return regex
     }
@@ -187,8 +193,17 @@ final class SyntaxLanguage {
     /// and returns false to stop. Returns false if cancelled.
     private func scan(_ text: NSString, offset: Int, from: Int, cancel: SyntaxCancellation?,
                       visit: (_ range: NSRange, _ kind: TokenKind?) -> Bool) -> Bool {
+        if let lexer, let lexerWords {
+            return Self.withCharacters(of: text) { buffer, count in
+                Lexer(buffer, count: count, spec: lexer, words: lexerWords)
+                    .scan(from: from - offset, cancel: cancel) { location, length, kind in
+                        visit(NSRange(location: location + offset, length: length), TokenKind(rawValue: kind))
+                    }
+            }
+        }
         let regex = regex
-        let groupCount = kinds.count
+        let capturedKinds = plan.capturedKinds
+        let uncaptured = plan.uncaptured
         var matches = 0
         var cancelled = false
         let range = NSRange(location: from - offset, length: text.length - (from - offset))
@@ -201,24 +216,51 @@ final class SyntaxLanguage {
                 stop.pointee = true
                 return
             }
-            var kind: TokenKind?
             var matched = match.range
-            if let identifierGroup, match.range(at: identifierGroup).location != NSNotFound {
-                kind = classify(matched, in: text)
-            } else {
-                for group in 1...groupCount where group != identifierGroup {
-                    let groupRange = match.range(at: group)
-                    if groupRange.location != NSNotFound {
-                        kind = kinds[group - 1]
-                        matched = groupRange
-                        break
-                    }
-                }
+            var group: TokenKind?? = nil  // .some(nil): identifier
+            for (index, captured) in capturedKinds.enumerated() where match.range(at: index + 1).location != NSNotFound {
+                group = .some(captured)
+                break
+            }
+            if group == nil {
+                let first = text.character(at: matched.location)
+                group = uncaptured.first { $0.first.contains(first) }.map(\.kind)
+            }
+            var kind: TokenKind?
+            switch group {
+            case .some(.some(let ruleKind)): kind = ruleKind
+            case .some(.none): kind = classify(matched, in: text)
+            case .none: kind = nil
             }
             matched.location += offset
             if !visit(matched, kind) { stop.pointee = true }
         }
         return !cancelled
+    }
+
+    /// The same language with one capture group per rule, as before `RegexRulePlan` (tests).
+    func withOneGroupPerRule() -> SyntaxLanguage {
+        SyntaxLanguage(id: id, name: name, extensions: Array(extensions), fileNames: Array(fileNames),
+                       caseInsensitive: caseInsensitive, keywords: keywords.joined(separator: " "),
+                       types: types.joined(separator: " "), capitalizedTypes: capitalizedTypes,
+                       typeSuffix: typeSuffix, lexer: lexer, rules: rules, optimizeGroups: false)
+    }
+
+    var usesLexer: Bool { lexer != nil }
+    /// Capture groups of the combined regex (tests, diagnostics).
+    var captureGroupCount: Int { plan.capturedKinds.count }
+
+    /// Runs `body` on the UTF-16 code units of `text`: directly if the string stores them
+    /// contiguously, otherwise on a copy.
+    private static func withCharacters<R>(of text: NSString, _ body: (UnsafePointer<UInt16>, Int) -> R) -> R {
+        let count = text.length
+        if let direct = CFStringGetCharactersPtr(text as CFString) {
+            return body(direct, count)
+        }
+        let buffer = UnsafeMutablePointer<UInt16>.allocate(capacity: max(count, 1))
+        defer { buffer.deallocate() }
+        text.getCharacters(buffer, range: NSRange(location: 0, length: count))
+        return body(buffer, count)
     }
 
     /// All tokens of `text`; nil if cancelled. `progress` is called now and then with the
@@ -292,7 +334,10 @@ final class SyntaxLanguage {
             }
             return .tokens(result)
         }
-        if hitWindowEnd { return .needsMoreText }
+        // Without a resync the scan must have covered the rest of the document – also when the
+        // window's end held no lexeme at all (plain prose in Markdown/XML), so hitWindowEnd
+        // alone is not enough.
+        if hitWindowEnd || !reachesEnd { return .needsMoreText }
         return .tokens(result)
     }
 
@@ -387,86 +432,39 @@ final class SyntaxLanguage {
 
     private static let programmingLanguages: [SyntaxLanguage] = [
         SyntaxLanguage(id: "swift", name: "Swift", extensions: ["swift"],
-                       keywords: "associatedtype class deinit enum extension fileprivate func import init inout internal let open operator private precedencegroup protocol public rethrows static struct subscript typealias var break case catch continue default defer do else fallthrough for guard if in repeat return throw switch where while as Any false is nil self Self super throws true try async await actor nonisolated isolated some any lazy weak unowned override mutating nonmutating final required convenience dynamic optional get set willSet didSet macro consuming borrowing package sending", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, P.tripleDq), (.string, P.dqString),
-            (.attribute, #"@\w+"#),
-            (.attribute, #"#(?:if|elseif|else|endif|available|unavailable|selector|keyPath|warning|error|file|fileID|filePath|line|column|function|dsohandle|sourceLocation|Preview|expect|require)\b"#),
-            (.number, P.number),
-        ]),
+                       keywords: "associatedtype class deinit enum extension fileprivate func import init inout internal let open operator private precedencegroup protocol public rethrows static struct subscript typealias var break case catch continue default defer do else fallthrough for guard if in repeat return throw switch where while as Any false is nil self Self super throws true try async await actor nonisolated isolated some any lazy weak unowned override mutating nonmutating final required convenience dynamic optional get set willSet didSet macro consuming borrowing package sending", capitalizedTypes: true,
+                       lexer: LexerSpec(tripleDoubleQuotes: true, atAttributes: true, swiftDirectives: true)),
         SyntaxLanguage(id: "c", name: "C / C++ / Objective-C",
                        extensions: ["c", "h", "cpp", "cc", "cxx", "hpp", "hh", "hxx", "m", "mm", "ino"],
-                       keywords: "auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while bool true false NULL nullptr class namespace template typename public private protected virtual override final new delete this throw try catch using operator friend explicit constexpr consteval static_cast dynamic_cast reinterpret_cast const_cast noexcept decltype mutable nil YES NO self super id instancetype nonatomic strong weak assign readonly readwrite", capitalizedTypes: true, typeSuffix: "_t", rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.attribute, #"^[ \t]*#[ \t]*\w+"#),
-            (.string, #"<[\w./+-]+\.h(?:h|pp|xx)?>"#),
-            (.string, P.dqString), (.string, P.charLiteral),
-            (.attribute, #"@\w+"#),
-            (.number, P.number),
-        ]),
+                       keywords: "auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while bool true false NULL nullptr class namespace template typename public private protected virtual override final new delete this throw try catch using operator friend explicit constexpr consteval static_cast dynamic_cast reinterpret_cast const_cast noexcept decltype mutable nil YES NO self super id instancetype nonatomic strong weak assign readonly readwrite", capitalizedTypes: true, typeSuffix: "_t",
+                       lexer: LexerSpec(singleQuotes: .charLiteral, atAttributes: true, preprocessor: true, includePaths: true)),
         SyntaxLanguage(id: "java", name: "Java", extensions: ["java"],
-                       keywords: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null var record sealed permits yield", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, P.tripleDq), (.string, P.dqString), (.string, P.charLiteral),
-            (.attribute, #"@\w+"#),
-            (.number, P.number),
-        ]),
+                       keywords: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null var record sealed permits yield", capitalizedTypes: true,
+                       lexer: LexerSpec(tripleDoubleQuotes: true, singleQuotes: .charLiteral, atAttributes: true)),
         SyntaxLanguage(id: "kotlin", name: "Kotlin", extensions: ["kt", "kts"],
-                       keywords: "as break class continue do else false for fun if in interface is null object package return super this throw true try typealias typeof val var when while by catch constructor finally get import init set where actual abstract annotation companion const crossinline data enum expect external final infix inline inner internal lateinit noinline open operator out override private protected public reified sealed suspend tailrec vararg", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, P.tripleDq), (.string, P.dqString), (.string, P.charLiteral),
-            (.attribute, #"@\w+"#),
-            (.number, P.number),
-        ]),
+                       keywords: "as break class continue do else false for fun if in interface is null object package return super this throw true try typealias typeof val var when while by catch constructor finally get import init set where actual abstract annotation companion const crossinline data enum expect external final infix inline inner internal lateinit noinline open operator out override private protected public reified sealed suspend tailrec vararg", capitalizedTypes: true,
+                       lexer: LexerSpec(tripleDoubleQuotes: true, singleQuotes: .charLiteral, atAttributes: true)),
         SyntaxLanguage(id: "csharp", name: "C#", extensions: ["cs", "csx"],
-                       keywords: "abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while var async await dynamic get set value yield record init required", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.attribute, #"^[ \t]*#[ \t]*\w+"#),
-            (.string, #"@"(?:[^"]|"")*"?"#), (.string, P.tripleDq), (.string, P.dqString), (.string, P.charLiteral),
-            (.number, P.number),
-        ]),
+                       keywords: "abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while var async await dynamic get set value yield record init required", capitalizedTypes: true,
+                       lexer: LexerSpec(tripleDoubleQuotes: true, singleQuotes: .charLiteral, preprocessor: true, verbatimStrings: true)),
         SyntaxLanguage(id: "go", name: "Go", extensions: ["go"],
-                       keywords: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var true false nil iota", types: "bool byte complex64 complex128 error float32 float64 int int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr any", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, P.dqString), (.string, P.backtickString), (.string, P.charLiteral),
-            
-            (.number, P.number),
-        ]),
+                       keywords: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var true false nil iota", types: "bool byte complex64 complex128 error float32 float64 int int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr any", capitalizedTypes: true,
+                       lexer: LexerSpec(singleQuotes: .charLiteral, backticks: true)),
         SyntaxLanguage(id: "rust", name: "Rust", extensions: ["rs"],
-                       keywords: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while", types: "i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize f32 f64 bool char str", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, ####"r###"[\s\S]*?(?:"###|\z)|r##"[\s\S]*?(?:"##|\z)|r#"[\s\S]*?(?:"#|\z)|r"[^"]*"?"####), (.string, P.dqString), (.string, P.charLiteral),
-            (.type, #"'[A-Za-z_]\w*\b"#),
-            (.attribute, #"#!?\[[^\]\n]*\]"#), (.attribute, #"\b\w+!"#),
-            
-            (.number, P.number),
-        ]),
+                       keywords: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while", types: "i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize f32 f64 bool char str", capitalizedTypes: true,
+                       lexer: LexerSpec(singleQuotes: .charLiteral, rust: true)),
         SyntaxLanguage(id: "javascript", name: "JavaScript / TypeScript",
                        extensions: ["js", "mjs", "cjs", "jsx", "ts", "mts", "cts", "tsx"],
-                       keywords: "break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new return super switch this throw try typeof var void while with yield async await of static get set true false null undefined NaN Infinity from as interface type enum implements private protected public readonly declare namespace abstract keyof never unknown any number string boolean symbol bigint object satisfies", capitalizedTypes: true, rules: [
-            (.comment, P.slashComment), (.comment, P.blockComment),
-            (.string, P.dqString), (.string, P.sqString), (.string, P.backtickString),
-            (.attribute, #"@\w+"#),
-            (.number, P.number),
-        ]),
+                       keywords: "break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new return super switch this throw try typeof var void while with yield async await of static get set true false null undefined NaN Infinity from as interface type enum implements private protected public readonly declare namespace abstract keyof never unknown any number string boolean symbol bigint object satisfies", capitalizedTypes: true,
+                       lexer: LexerSpec(singleQuotes: .string, backticks: true, atAttributes: true)),
         SyntaxLanguage(id: "python", name: "Python", extensions: ["py", "pyw", "pyi"],
-                       keywords: "False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case self cls", capitalizedTypes: true, rules: [
-            (.comment, P.hashComment),
-            (.string, #"(?:\b[rRbBfFuU]{1,2})?"""[\s\S]*?(?:"""|\z)"#),
-            (.string, #"(?:\b[rRbBfFuU]{1,2})?'''[\s\S]*?(?:'''|\z)"#),
-            (.string, #"(?:\b[rRbBfFuU]{1,2})?"# + P.dqString),
-            (.string, #"(?:\b[rRbBfFuU]{1,2})?"# + P.sqString),
-            (.attribute, #"^[ \t]*@[\w.]+"#),
-            (.number, P.number),
-        ]),
+                       keywords: "False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case self cls", capitalizedTypes: true,
+                       lexer: LexerSpec(slashComments: false, hashComments: true, tripleDoubleQuotes: true, tripleSingleQuotes: true,
+                                        stringPrefixes: true, singleQuotes: .string, decorators: true)),
         SyntaxLanguage(id: "shell", name: "Shell", extensions: ["sh", "bash", "zsh", "ksh", "command"],
                        fileNames: [".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile", ".zshenv"],
-                       keywords: "if then else elif fi case esac for select while until do done in function time return exit break continue local export readonly declare typeset unset shift source alias echo printf read cd test true false eval exec set trap wait", rules: [
-            (.comment, P.hashCommentAfterSpace),
-            (.string, P.dqString), (.string, #"'[^']*'?"#),
-            (.variable, #"\$\{[^}\n]*\}|\$[A-Za-z_]\w*|\$[0-9@#?$!*-]"#),
-            (.number, P.number),
-        ]),
+                       keywords: "if then else elif fi case esac for select while until do done in function time return exit break continue local export readonly declare typeset unset shift source alias echo printf read cd test true false eval exec set trap wait",
+                       lexer: LexerSpec(slashComments: false, shellComments: true, singleQuotes: .raw, shellVariables: true)),
         SyntaxLanguage(id: "batch", name: "Batch (Windows)", extensions: ["bat", "cmd"], caseInsensitive: true,
                        keywords: "echo set if else goto call exit for in do not exist defined errorlevel equ neq lss leq gtr geq setlocal endlocal enabledelayedexpansion shift pause cls start pushd popd cd copy move del mkdir rmdir title off on nul", rules: [
             (.comment, #"^[ \t]*@?(?:rem\b|::)[^\n]*"#),

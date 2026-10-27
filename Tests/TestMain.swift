@@ -28,6 +28,8 @@ enum TestMain {
         runLatin1DecoderTests()
         runPositionCacheTests()
         runSyntaxTests()
+        runLexerTests()
+        runRegexPlanTests()
         runConfigSyntaxTests()
         runIncrementalSyntaxTests()
         runFastUTFTests()
