@@ -10,6 +10,12 @@ Konfigurationsdateien.
 - Keine Abhängigkeiten, kein Netzwerkzugriff, ca. 1,5 MB
 - Öffnet auch Gigabyte-Dateien und bleibt dabei flüssig (siehe [Leistung](#leistung))
 
+> **Mit KI gebaut („vibe-coded“):** Code, Tests und Dokumentation hat
+> [Claude Code](https://claude.com/claude-code) (KI von Anthropic) geschrieben, nach Vorgaben und
+> Rückmeldungen eines Menschen. Abgesichert ist das durch über 550 automatische Tests und
+> Leistungsgrenzen (siehe [Entwicklung](#entwicklung)), nicht durch ein Code-Review jeder Zeile.
+> Nutzung auf eigene Verantwortung, wie bei jeder Software ohne Gewähr (siehe [Lizenz](#lizenz)).
+
 ## Installation
 
 ```sh

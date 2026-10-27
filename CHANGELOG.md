@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- README: Hinweis, dass das Projekt mit KI gebaut ist (Claude Code, „vibe-coded“).
+
 ### Geändert
 
 - Keine automatischen Fenster-Tabs von macOS mehr: jede Datei in einem eigenen Fenster wie bei
