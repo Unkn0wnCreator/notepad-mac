@@ -6,6 +6,10 @@ in Swift/AppKit (plus etwas Objective-C für den Textspeicher). Schlicht, auf Ge
 getrimmt, mit Menüleiste im Fenster wie unter Windows und Syntaxhervorhebung für Code und
 Konfigurationsdateien.
 
+<p align="center">
+  <img src="docs/screenshot.png" width="820" alt="Notepad für macOS: leeres Fenster mit Menüleiste Datei, Bearbeiten, Format, Ansicht, Hilfe und Statusleiste mit Zeile/Spalte, Zoom, Sprache, Zeilenende und Kodierung">
+</p>
+
 - Universal-App (Apple Silicon + Intel), ab macOS 13, Oberfläche auf Deutsch oder Englisch
   (nach der Systemsprache)
 - Keine Abhängigkeiten, kein Netzwerkzugriff, ca. 1,5 MB
@@ -180,6 +184,7 @@ Versionen der verwendeten Actions.
 | `Sources/Preferences.swift` | Einstellungen | `settings.c` |
 | `Sources/Localization.swift`, `Resources/en.lproj/` | Deutsch/Englisch | `lang/en-US.rc` |
 | `Tools/make-icon.swift` | zeichnet das App-Icon beim Bauen | – |
+| `docs/screenshot.png` | Screenshot für dieses README | – |
 | `Tests/` | automatische Tests und Benchmarks | – |
 
 Hinweise für Entwickler (und Claude Code) stehen in [`CLAUDE.md`](CLAUDE.md),

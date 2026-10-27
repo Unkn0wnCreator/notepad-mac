@@ -11,7 +11,7 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 - Oberfläche auf Englisch: Menüs, Statusleiste, Dialoge und Meldungen erscheinen bei jeder
   Systemsprache außer Deutsch auf Englisch (Statusleiste z. B. „Ln 1, Col 1“, Menü „File“ mit
   „Exit“ wie im englischen Notepad). Bei deutscher Systemsprache bleibt alles wie bisher.
-- README: Hinweis, dass das Projekt mit KI gebaut ist (Claude Code, „vibe-coded“).
+- README: Hinweis, dass das Projekt mit KI gebaut ist (Claude Code, „vibe-coded“), und Screenshot.
 
 ### Geändert
 
