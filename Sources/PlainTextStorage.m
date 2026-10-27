@@ -89,6 +89,17 @@ static unichar NarrowUnits(uint8_t *restrict destination, const unichar *restric
     return self;
 }
 
+- (instancetype)initAdoptingLatin1Bytes:(uint8_t *)bytes length:(NSUInteger)length capacity:(NSUInteger)capacity {
+    if ((self = [super init])) {
+        _buffer = bytes;
+        _capacity = capacity;
+        _gapStart = length;
+        _gapEnd = capacity;
+        _maybeNonASCII = YES;
+    }
+    return self;
+}
+
 - (instancetype)initWithCharactersNoCopy:(unichar *)characters length:(NSUInteger)length freeWhenDone:(BOOL)freeBuffer {
     self = [self initWithCharacters:characters length:length];
     if (freeBuffer) free(characters);
@@ -397,6 +408,17 @@ static inline BOOL SameAttributes(const void *a, const void *b) {
 
 - (NSMutableString *)backingString {
     return _text;
+}
+
+- (void)adoptText:(GapBufferString *)text {
+    NSUInteger oldLength = _length;
+    NSDictionary *attributes = _runCount ? RunAttributes(&_runs[0]) : @{};
+    [self beginEditing];
+    _text = text;
+    [self replaceRunsInRange:NSMakeRange(0, oldLength) count:text.length attributes:attributes];
+    [self edited:NSTextStorageEditedCharacters range:NSMakeRange(0, oldLength)
+  changeInLength:(NSInteger)text.length - (NSInteger)oldLength];
+    [self endEditing];
 }
 
 - (NSUInteger)length {

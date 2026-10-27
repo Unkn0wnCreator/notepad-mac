@@ -87,6 +87,14 @@ enum TextCodec {
 
     /// UTF-8 or ANSI. `encoding == nil` means: UTF-8 if valid, otherwise ANSI.
     private static func decodeBytes(_ bytes: UnsafePointer<UInt8>, count: Int, encoding: TextEncoding?) -> DecodedText {
+        // Fastest path: Latin-1 text (ASCII, German …) goes straight into a gap buffer that the
+        // editor adopts without copying – one SIMD pass, one byte per character.
+        if encoding != .ansi, let latin1 = FastUTF.decodeUTF8ToLatin1(bytes, count: count) {
+            let text = GapBufferString(adoptingLatin1Bytes: latin1.bytes, length: UInt(latin1.length),
+                                       capacity: UInt(latin1.capacity))
+            let lineEnding = chooseLineEnding(crlf: latin1.crlfCount, lf: latin1.lfCount, cr: latin1.crCount)
+            return DecodedText(text: text, encoding: encoding ?? .utf8, lineEnding: lineEnding)
+        }
         // Fast path: validate, convert and normalize line endings in one SIMD pass.
         if encoding != .ansi, let decoded = FastUTF.decodeUTF8(bytes, count: count) {
             let lineEnding = chooseLineEnding(crlf: decoded.crlfCount, lf: decoded.lfCount, cr: decoded.crCount)

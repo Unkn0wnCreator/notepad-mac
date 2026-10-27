@@ -77,7 +77,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
         textView.registerForDraggedTypes([.fileURL])
         textView.onFileDrop = { [weak self] urls in self?.openDroppedFiles(urls) }
 
-        textView.string = text as String
+        setText(text)
         applyFont()
         applyWordWrap()
         applyStatusBarVisibility()
@@ -279,8 +279,17 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSText
 
     // MARK: - Text
 
+    /// Decoded files arrive as a GapBufferString, which the storage adopts without copying.
+    private func setText(_ text: NSString) {
+        if let gapBuffer = text as? GapBufferString, let storage = textView.textStorage as? PlainTextStorage {
+            storage.adoptText(gapBuffer)
+        } else {
+            textView.string = text as String
+        }
+    }
+
     func replaceText(_ text: NSString) {
-        textView.string = text as String
+        setText(text)
         applyFont()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         textDocument?.undoManager?.removeAllActions()

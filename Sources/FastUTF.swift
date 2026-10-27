@@ -308,3 +308,83 @@ enum FastUTF {
         return UInt64(littleEndian: unsafeBitCast(r, to: UInt64.self))
     }
 }
+
+extension FastUTF {
+    struct Latin1Decoded {
+        /// `malloc`ed, one byte per character; the receiver owns it (e.g. a GapBufferString).
+        var bytes: UnsafeMutablePointer<UInt8>
+        var length: Int
+        var capacity: Int
+        var crlfCount: Int
+        var lfCount: Int
+        var crCount: Int
+    }
+
+    /// Like `decodeUTF8`, but produces Latin-1 bytes (one byte per character) – half the memory
+    /// of UTF-16 and directly usable by `GapBufferString` without another copy. Returns nil if
+    /// the text is not valid UTF-8 or contains a character above U+00FF; the caller then uses
+    /// `decodeUTF8`. Line endings and NULs are normalized the same way.
+    static func decodeUTF8ToLatin1(_ bytes: UnsafePointer<UInt8>, count: Int) -> Latin1Decoded? {
+        // A little spare room so the first edits don't have to grow the buffer.
+        let capacity = count + max(4096, count / 64)
+        guard let raw = malloc(max(capacity, 1)) else { fatalError("FastUTF: out of memory") }
+        let out = raw.bindMemory(to: UInt8.self, capacity: capacity)
+        var i = 0, o = 0
+        var crlf = 0, lf = 0, cr = 0
+        let lineFeed = SIMD16<UInt8>(repeating: 0x0A)
+        let carriageReturn = SIMD16<UInt8>(repeating: 0x0D)
+        let highBit = SIMD16<UInt8>(repeating: 0x80)
+        let zero = SIMD16<UInt8>()
+        let allOnes = SIMD16<UInt8>(repeating: 0xFF)
+
+        while i < count {
+            // Fast path: copy the leading run of plain ASCII of a 16-byte block. Writing all 16
+            // bytes is safe because the output never runs ahead of the input (o ≤ i).
+            if i &+ 16 <= count {
+                let v = UnsafeRawPointer(bytes + i).loadUnaligned(as: SIMD16<UInt8>.self)
+                let special = (v .>= highBit) .| (v .== carriageReturn) .| (v .== zero)
+                UnsafeMutableRawPointer(out + o).storeBytes(of: v, as: SIMD16<UInt8>.self)
+                let specialMask = nibbleMask(zero.replacing(with: allOnes, where: special))
+                let lineFeedMask = nibbleMask(zero.replacing(with: allOnes, where: v .== lineFeed))
+                if specialMask == 0 {
+                    lf &+= lineFeedMask.nonzeroBitCount >> 2
+                    i &+= 16
+                    o &+= 16
+                    continue
+                }
+                let plain = specialMask.trailingZeroBitCount >> 2
+                if plain > 0 {
+                    lf &+= (lineFeedMask & ((1 << UInt64(plain * 4)) &- 1)).nonzeroBitCount >> 2
+                    i &+= plain
+                    o &+= plain
+                }
+            }
+
+            // One character the slow way.
+            let b = bytes[i]
+            if b < 0x80 {
+                if b == 0x0D {
+                    if i &+ 1 < count && bytes[i &+ 1] == 0x0A {
+                        crlf &+= 1
+                        i &+= 1
+                    } else {
+                        cr &+= 1
+                    }
+                    out[o] = 0x0A
+                } else {
+                    if b == 0x0A { lf &+= 1 }
+                    out[o] = b == 0 ? 0x20 : b
+                }
+                i &+= 1
+            } else if (b == 0xC2 || b == 0xC3) && i &+ 1 < count && bytes[i &+ 1] & 0xC0 == 0x80 {
+                out[o] = (b & 0x03) << 6 | (bytes[i &+ 1] & 0x3F)
+                i &+= 2
+            } else {
+                free(raw)
+                return nil  // above U+00FF or invalid: let the UTF-16 decoder handle (and validate) it
+            }
+            o &+= 1
+        }
+        return Latin1Decoded(bytes: out, length: o, capacity: capacity, crlfCount: crlf, lfCount: lf, crCount: cr)
+    }
+}

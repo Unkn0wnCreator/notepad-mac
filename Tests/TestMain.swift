@@ -25,6 +25,7 @@ enum TestMain {
         delegate.applicationWillFinishLaunching(Notification(name: NSApplication.willFinishLaunchingNotification))
 
         runCodecTests()
+        runLatin1DecoderTests()
         runPositionCacheTests()
         runSyntaxTests()
         runConfigSyntaxTests()

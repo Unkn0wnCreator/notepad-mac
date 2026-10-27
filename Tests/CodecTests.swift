@@ -66,3 +66,34 @@ func runPositionCacheTests() {
     }
     check("Cache stimmt mit vollständiger Zählung überein (3000 Schritte)", mismatches == 0, mismatches)
 }
+
+/// The Latin-1 fast path must give the same text and line endings as the UTF-16 decoder, and
+/// step aside (nil) for anything above U+00FF or invalid UTF-8.
+func runLatin1DecoderTests() {
+    print("== Latin-1-Dekoder")
+    let latin1Pieces = ["a", "Zeile", "äöüß", "é", "\u{FF}", "\r\n", "\n", "\r", "\0", "\t", String(repeating: "x", count: 40)]
+    var generator = SystemRandomNumberGenerator()
+    var mismatches = 0
+    for _ in 0..<2000 {
+        let text = (0..<Int.random(in: 0...60, using: &generator)).map { _ in latin1Pieces.randomElement(using: &generator)! }.joined()
+        let bytes = Array(text.utf8)
+        let reference = bytes.withUnsafeBufferPointer { FastUTF.decodeUTF8($0.baseAddress ?? UnsafePointer(bitPattern: 1)!, count: $0.count) }!
+        guard let fast = bytes.withUnsafeBufferPointer({ FastUTF.decodeUTF8ToLatin1($0.baseAddress ?? UnsafePointer(bitPattern: 1)!, count: $0.count) }) else {
+            mismatches += 1
+            continue
+        }
+        let string = GapBufferString(adoptingLatin1Bytes: fast.bytes, length: UInt(fast.length), capacity: UInt(fast.capacity))
+        if string as String != reference.text as String || fast.crlfCount != reference.crlfCount
+            || fast.lfCount != reference.lfCount || fast.crCount != reference.crCount {
+            mismatches += 1
+        }
+    }
+    check("Latin-1-Dekoder = UTF-16-Dekoder (2000 Zufallstexte)", mismatches == 0, mismatches)
+    for (name, bytes) in [("Euro", Array("a€".utf8)), ("Emoji", Array("😀".utf8)), ("ungültig", [0x61, 0xFF] as [UInt8]),
+                          ("Überlang", [0xC0, 0xAF] as [UInt8]), ("abgeschnitten", [0x61, 0xC3] as [UInt8])] {
+        let result = bytes.withUnsafeBufferPointer { FastUTF.decodeUTF8ToLatin1($0.baseAddress!, count: $0.count) }
+        check("Latin-1-Dekoder lehnt ab: \(name)", result == nil)
+    }
+    let decoded = TextCodec.decode(Data("Grüße\r\n".utf8))
+    check("Latin-1-Text landet im Gap Buffer", decoded.text is GapBufferString && decoded.text as String == "Grüße\n" && decoded.lineEnding == .crlf)
+}

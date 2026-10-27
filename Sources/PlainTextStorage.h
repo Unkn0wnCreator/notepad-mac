@@ -14,6 +14,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// `getCharacters:range:` copies at most two contiguous pieces; `copy` returns a contiguous
 /// immutable NSString (one copy pass). `CFStringGetCharactersPtr` returns NULL for it.
 @interface GapBufferString : NSMutableString
+
+/// Takes over a `malloc`ed buffer of `length` Latin-1 code units (one byte per character,
+/// `capacity` bytes allocated) without copying it; the string frees it.
+- (instancetype)initAdoptingLatin1Bytes:(uint8_t *)bytes length:(NSUInteger)length capacity:(NSUInteger)capacity;
+
 @end
 
 /// NSTextStorage backed by a `GapBufferString` and a compact array of attribute runs.
@@ -28,6 +33,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// copies all of it. Typed as NSMutableString only because Swift does not bridge that type;
 /// never mutate it.
 @property (nonatomic, readonly) NSMutableString *backingString;
+
+/// Replaces the whole text with `text`, which becomes the backing string itself (no copy) –
+/// used when opening files. Attributes of the old first character carry over.
+- (void)adoptText:(GapBufferString *)text;
 
 @end
 
