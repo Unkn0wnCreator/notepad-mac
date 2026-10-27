@@ -24,7 +24,7 @@ normal. Auf einem anderen Mac beim ersten Start Rechtsklick → „Öffnen“ w�
 
 ### Als Standard-Texteditor statt TextEdit
 
-*Hilfe > Notepad als Standard-Texteditor verwenden* – ein Klick, eine Bestätigung. Danach öffnen
+*Hilfe > Notepad als Standard-Texteditor verwenden* – ein Klick, --eine Bestätigung-- Apple Erlaubt das scheinbar nicht also muss man leider einmalig öfter bestätigen. Danach öffnen
 sich Textdateien, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien per Doppelklick
 mit Notepad. HTML und RTF bleiben bei ihren bisherigen Apps. Notepad merkt sich die vorherigen
 Apps; ein erneuter Klick auf den (dann abgehakten) Menüpunkt stellt sie wieder her. Am besten
