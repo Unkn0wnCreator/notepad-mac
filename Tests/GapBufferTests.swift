@@ -13,6 +13,10 @@ func runGapBufferTests() {
     storageTextViewTests()
     print("     -- dieselben Tests mit dem alten Textspeicher:")
     storageTextViewTests(LegacyTextStorage())
+    if skipPerformance {
+        print("     (Textspeicher-Benchmarks übersprungen, NOTEPAD_SKIP_PERF=1)")
+        return
+    }
     storageBenchmark(characters: 200_000_000, label: "200 MB", rounds: 3, legacyKeystrokes: 3)
     if ProcessInfo.processInfo.environment["NOTEPAD_BIG_BENCH"] == "1" {
         storageBenchmark(characters: 1_000_000_000, label: "1 GB", rounds: 3, legacyKeystrokes: 2, big: true)

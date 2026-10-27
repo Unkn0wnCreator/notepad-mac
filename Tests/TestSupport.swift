@@ -12,6 +12,15 @@ func check(_ name: String, _ ok: Bool, _ detail: Any = "") {
     if !ok { failures += 1 }
 }
 
+/// NOTEPAD_SKIP_PERF=1 (GitHub CI, whose shared runners vary in speed by a factor of 2–5 between
+/// runs): no benchmarks and no time limits. Locally they always run.
+let skipPerformance = ProcessInfo.processInfo.environment["NOTEPAD_SKIP_PERF"] == "1"
+
+/// `check` for time limits and speed ratios; functional results always go through `check`.
+func checkPerformance(_ name: String, _ ok: Bool, _ detail: Any = "") {
+    if !skipPerformance { check(name, ok, detail) }
+}
+
 /// Lets the run loop process pending work (undo groups, layout, notifications).
 func spin() {
     RunLoop.main.run(until: Date().addingTimeInterval(0.3))

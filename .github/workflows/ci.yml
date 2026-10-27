@@ -1,0 +1,101 @@
+name: ci
+
+# Builds and tests the app on GitHub's hosted macOS runners and publishes releases: a tag v*
+# matching CFBundleShortVersionString becomes a release with the zipped app, the notes are the
+# version's CHANGELOG section.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Werkzeuge
+        run: |
+          sw_vers
+          xcrun --show-sdk-path
+          xcrun swiftc --version
+
+      - name: Statische Analyse (Objective-C)
+        run: |
+          clang --analyze -fobjc-arc -isysroot "$(xcrun --show-sdk-path)" -Xclang -analyzer-werror \
+            -Xanalyzer -analyzer-output=text Sources/PlainTextStorage.m -o /dev/null
+
+      - name: Tests (ohne Leistungstests)
+        # GitHub's shared runners vary in speed by a factor of 2–5 between runs on the same image;
+        # the time limits are checked locally instead.
+        env:
+          NOTEPAD_SKIP_PERF: '1'
+        run: ./test.sh
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Paket
+        id: pkg
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
+          # Releases get the plain version, every other build the commit as well.
+          case "$GITHUB_REF" in
+            refs/tags/v*)
+              [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "::error::Tag $GITHUB_REF_NAME passt nicht zu Version $version in Info.plist"; exit 1; }
+              name=Notepad-$version ;;
+            *) name=Notepad-$version-$(git rev-parse --short HEAD) ;;
+          esac
+          mkdir -p dist
+          # ditto keeps the bundle's symlinks, extended attributes and the ad hoc signature intact.
+          ditto -c -k --keepParent build/Notepad.app "dist/$name.zip"
+          (cd dist && shasum -a 256 *.zip > SHA256SUMS.txt)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.pkg.outputs.name }}
+          path: dist
+
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Notes: the CHANGELOG section of this version ("## 1.2.1 – date" up to the next "## ").
+          awk -v v="$VERSION" 'index($0, "## " v " ") == 1 || $0 == "## " v {f=1; next} /^## / && f {exit} f' \
+            CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::Kein Abschnitt \"## $VERSION\" in CHANGELOG.md"; exit 1; }
+          printf '\nDie App ist nur ad hoc signiert, beim ersten Start siehe README (Installation).\n' >> notes.md
+          # A re-run of the tag replaces the files of the existing release.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "Notepad $VERSION" --notes-file notes.md --verify-tag
+          fi
+

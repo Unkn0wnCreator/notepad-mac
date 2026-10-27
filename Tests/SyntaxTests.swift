@@ -102,7 +102,7 @@ func runSyntaxTests() {
         if seconds > slowest.seconds { slowest = (language.name, seconds) }
     }
     print(String(format: "     1 MB: langsamste Sprache %@ mit %.0f ms", slowest.name, slowest.seconds * 1000))
-    check("1 MB in jeder Sprache unter 1,5 s", slowest.seconds < 1.5, slowest)
+    checkPerformance("1 MB in jeder Sprache unter 1,5 s", slowest.seconds < 1.5, slowest)
 }
 
 /// After random edits, the incremental re-scan must give exactly the tokens of a full scan.

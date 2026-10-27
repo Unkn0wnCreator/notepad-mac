@@ -35,7 +35,11 @@ enum TestMain {
         runFastUTFTests()
         runGapBufferTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
-        runPerformanceTests(fixtures: fixtures)
+        if skipPerformance {
+            print("== Leistung übersprungen (NOTEPAD_SKIP_PERF=1)")
+        } else {
+            runPerformanceTests(fixtures: fixtures)
+        }
 
         print(failures == 0 ? "\nALLE TESTS OK" : "\n\(failures) FEHLER")
         if failures != 0 { exit(1) }

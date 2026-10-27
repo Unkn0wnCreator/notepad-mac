@@ -4,6 +4,26 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## 1.2.1 – 2026-10-27
+
+### Hinzugefügt
+
+- GitHub-Repo [Unkn0wnCreator/notepad-mac](https://github.com/Unkn0wnCreator/notepad-mac) mit CI
+  auf `macos-latest`: baut und testet bei jedem Push und stellt die App als ZIP-Artefakt bereit. Zu
+  jedem Tag `v…` veröffentlicht sie ein Release, Notizen aus dem passenden Changelog-Abschnitt.
+  Dies ist das erste Release dort.
+- CodeQL für die Swift-Quellen (GitHub), Dependabot für die Versionen der Actions.
+- Clang Static Analyzer für `PlainTextStorage.m` in der CI (CodeQL kann kein Objective-C).
+- `NOTEPAD_SKIP_PERF=1 ./test.sh` lässt Leistungstests und Benchmarks weg. Die GitHub-CI nutzt das,
+  weil ihre geteilten Runner zu unterschiedlich schnell sind; lokal wird weiter alles geprüft.
+
+### Korrigiert
+
+- Baut auch mit Swift 6.3 (Xcode 26): mehrdeutiger Aufruf von `withUnsafeMutableBytes` in
+  `TextCodec.swift` (mit neuerem Swift kompilierte es ohne Fehler).
+- README und Dialog: *Notepad als Standard-Texteditor verwenden* braucht nicht nur eine
+  Bestätigung – macOS fragt für jeden Dateityp einzeln nach. Die Angabe in 1.2.0 war falsch.
+
 ## 1.2.0 – 2026-10-27
 
 Schwerpunkt Geschwindigkeit: große Dateien, Start und Hervorhebung.
@@ -23,8 +43,9 @@ Schwerpunkt Geschwindigkeit: große Dateien, Start und Hervorhebung.
 
 ### Geändert
 
-- *Notepad als Standard-Texteditor verwenden* braucht nur noch eine Bestätigung (vorher fragte
-  macOS für jeden der ca. 30 Dateitypen einzeln nach). Eine Meldung kommt nur noch bei Fehlern.
+- *Notepad als Standard-Texteditor verwenden* setzt die Dateitypen direkt über Launch Services.
+  Eine Meldung kommt nur noch bei Fehlern. (Die hier ursprünglich angegebene „eine Bestätigung“
+  stimmt nicht: macOS fragt weiterhin pro Dateityp nach.)
 - Bei „Im Hintergrund bereithalten“ beendet sich Notepad nach dem letzten Fenster nicht mehr.
 
 ### Verbessert

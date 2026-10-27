@@ -17,7 +17,14 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
 - **Bei jeder Änderung `README.md` und `CHANGELOG.md` mitpflegen** (und diese Datei, wenn sich
   Aufbau oder Regeln ändern). Neue Changelog-Einträge oben, Format „Keep a Changelog“, Deutsch.
   Version steht zusätzlich in `Resources/Info.plist` (`CFBundleShortVersionString`, `CFBundleVersion`).
-- **Nichts hochladen**: Das Repo ist bewusst nur lokal, kein Remote, kein `git push`.
+- **Release**: Version in `Resources/Info.plist` (beide Schlüssel) und Abschnitt `## x.y.z – Datum`
+  im CHANGELOG, Tag `vx.y.z`. Die GitHub-CI baut, testet und veröffentlicht `Notepad-x.y.z.zip` +
+  `SHA256SUMS.txt` als Release (eingebautes `GITHUB_TOKEN`, Notizen = Changelog-Abschnitt).
+  Tag ≠ Version → Abbruch.
+- **Leistungstests nur lokal**: Die GitHub-CI setzt `NOTEPAD_SKIP_PERF=1` (geteilte Runner
+  schwanken um Faktor 2–5). Dann entfallen die Suite „Leistung“ und die reinen Benchmarks;
+  Zeitgrenzen in gemischten Tests laufen über `checkPerformance` statt `check`. Neue Zeitgrenzen
+  immer mit `checkPerformance` prüfen, Funktionsprüfungen immer mit `check`.
 - Vor jedem Commit `./test.sh`. Neue Funktionen bekommen Tests in `Tests/`.
 - **Leistung hat Vorrang** (Wunsch des Benutzers): Nach jeder Änderung die Leistungstests in
   `./test.sh` ansehen (Tabelle unter „== Leistung“); neue performancerelevante Funktionen bekommen
@@ -58,8 +65,8 @@ Die Linker-Warnung zu `libswiftCompatibilityPacks.a` (x86_64) ist bekannt und ha
 - `Sources/RegexRules.swift` – `RegexRulePlan`: kombiniert die Regeln der übrigen Sprachen mit
   möglichst wenigen Capture-Gruppen (Analyse der möglichen ersten Zeichen jeder Regel).
 - `Sources/DefaultEditor.swift` – Standard-App für Texttypen setzen/zurückstellen, direkt über
-  `LSSetDefaultRoleHandlerForContentType` (eine Bestätigung statt einer Systemabfrage pro Typ wie bei
-  `NSWorkspace.setDefaultApplication`).
+  `LSSetDefaultRoleHandlerForContentType`. macOS fragt trotzdem pro Dateityp nach – eine einzige
+  Bestätigung für alle Typen ist laut Benutzer nicht möglich.
 - `Sources/Preferences.swift` – `UserDefaults`, Änderungen per `Preferences.didChange` an alle Fenster.
 - Hintergrundbetrieb: `AppDelegate` schaltet die automatische Beendigung ab, solange
   „Im Hintergrund bereithalten“ an ist; `EditorWindowController.prepareSpare()/make(text:)` halten ein

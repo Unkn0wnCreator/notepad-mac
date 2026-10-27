@@ -396,5 +396,5 @@ func runConfigSyntaxTests() {
         report.append(String(format: "%@ %.0f", id, msPerMB))
     }
     print("     ms/MB: " + report.joined(separator: ", "))
-    check("Konfigurationsdateien: 1 MB unter 1,5 s", slowest < 1500, slowest)
+    checkPerformance("Konfigurationsdateien: 1 MB unter 1,5 s", slowest < 1500, slowest)
 }

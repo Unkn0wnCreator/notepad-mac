@@ -510,7 +510,7 @@ func runLexerTests() {
                      regex.id.padding(toLength: 11, withPad: " ", startingAt: 0),
                      megabytes / oldTime, megabytes / regexTime, megabytes / lexerTime, factor, regexTime / lexerTime))
         check("\(regex.name): 3 MB gleiche Tokens", oldTokens == lexerTokens)
-        check("\(regex.name): Lexer mindestens 5× schneller", factor >= 5, String(format: "%.1f×", factor))
+        checkPerformance("\(regex.name): Lexer mindestens 5× schneller", factor >= 5, String(format: "%.1f×", factor))
     }
 }
 

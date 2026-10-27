@@ -71,8 +71,8 @@ enum DefaultEditor {
         return failed
     }
 
-    /// Uses Launch Services directly: unlike NSWorkspace.setDefaultApplication it does not ask
-    /// the user to confirm every single content type.
+    /// Uses Launch Services directly. macOS still asks the user to confirm each content type;
+    /// there is no API to change all of them with a single confirmation.
     private static func setHandlers(_ handlers: [(UTType, URL)]) -> [UTType] {
         var failed: [UTType] = []
         for (type, appURL) in handlers {
@@ -90,7 +90,7 @@ enum DefaultEditor {
 
     // MARK: - Menu action
 
-    /// One click in the menu, one confirmation. Only failures are reported afterwards.
+    /// Asks once here; macOS then confirms each content type itself. Only failures are reported.
     static func runToggleDialog() {
         let alert = NSAlert()
         if isDefault {
@@ -99,7 +99,7 @@ enum DefaultEditor {
             alert.addButton(withTitle: "Zurückstellen")
         } else {
             alert.messageText = "Notepad als Standard-Texteditor verwenden?"
-            var info = "Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen."
+            var info = "Text, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien öffnen sich dann per Doppelklick mit Notepad. Über denselben Menüpunkt lässt sich das zurückstellen.\n\nmacOS fragt danach für jeden Dateityp einzeln nach, bitte jeweils bestätigen."
             if !isInApplicationsFolder {
                 info += "\n\nTipp: Notepad liegt nicht im Ordner „Programme“, sondern in:\n"
                     + Bundle.main.bundleURL.deletingLastPathComponent().path

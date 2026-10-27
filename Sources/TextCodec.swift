@@ -259,7 +259,8 @@ enum TextCodec {
 
             if lineEnding == .cr {
                 var copy = Data(bytes)
-                copy.withUnsafeMutableBytes { out in
+                // Explicit type: Swift 6.3 cannot choose between the raw and the deprecated typed overload.
+                copy.withUnsafeMutableBytes { (out: UnsafeMutableRawBufferPointer) in
                     for unit in 0..<units where isLineFeed(unit) {
                         out[unit * unitSize + lineFeedOffset] = 0x0D
                     }

@@ -9,7 +9,7 @@ func runFastUTFTests() {
     print("== FastUTF")
     fastUTFDecodeTests()
     fastUTFEncodeTests()
-    fastUTFBenchmark()
+    if !skipPerformance { fastUTFBenchmark() }
 }
 
 /// Deterministic generator so failures are reproducible.

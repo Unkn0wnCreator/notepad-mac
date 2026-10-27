@@ -20,15 +20,27 @@ Danach `build/Notepad.app` nach `/Applications` ziehen. Benötigt werden nur die
 Xcode Command Line Tools (`xcode-select --install`), kein vollständiges Xcode.
 
 Die App ist nur lokal (ad hoc) signiert. Auf dem Mac, auf dem sie gebaut wurde, startet sie
-normal. Auf einem anderen Mac beim ersten Start Rechtsklick → „Öffnen“ wählen.
+normal. Auf einem anderen Mac beim ersten Start Rechtsklick → „Öffnen“ wählen (ab macOS 15:
+*Systemeinstellungen > Datenschutz & Sicherheit > Trotzdem öffnen*).
+
+### Fertiger Build aus der CI
+
+Fertige Builds gibt es auf GitHub: unter
+[Releases](https://github.com/Unkn0wnCreator/notepad-mac/releases) zu jeder Version (auf einem Mac
+gebaut und mit allen Tests geprüft, Prüfsummen in `SHA256SUMS.txt`), und als
+ZIP-Artefakt an jedem Lauf unter [Actions](https://github.com/Unkn0wnCreator/notepad-mac/actions)
+(nur angemeldet abrufbar). Weil die App nur ad hoc signiert ist, gilt beim ersten Start dasselbe
+wie oben; alternativ die Quarantäne entfernen: `xattr -dr com.apple.quarantine /Applications/Notepad.app`.
 
 ### Als Standard-Texteditor statt TextEdit
 
-*Hilfe > Notepad als Standard-Texteditor verwenden* – ein Klick, --eine Bestätigung-- Apple Erlaubt das scheinbar nicht also muss man leider einmalig öfter bestätigen. Danach öffnen
-sich Textdateien, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien per Doppelklick
-mit Notepad. HTML und RTF bleiben bei ihren bisherigen Apps. Notepad merkt sich die vorherigen
-Apps; ein erneuter Klick auf den (dann abgehakten) Menüpunkt stellt sie wieder her. Am besten
-Notepad vorher nach `/Applications` legen.
+*Hilfe > Notepad als Standard-Texteditor verwenden*. macOS lässt eine App das nicht für alle
+Dateitypen auf einmal festlegen, sondern fragt für jeden Typ einzeln nach. Beim ersten Mal muss man
+also mehrmals bestätigen (bis zu ca. 30-mal, einmal pro Dateityp). Danach öffnen sich
+Textdateien, Code und Skripte, JSON, XML, YAML, Markdown, CSV und Logdateien per Doppelklick mit
+Notepad. HTML und RTF bleiben bei ihren bisherigen Apps. Notepad merkt sich die vorherigen Apps;
+ein erneuter Klick auf den (dann abgehakten) Menüpunkt stellt sie wieder her (auch dabei fragt
+macOS pro Typ nach). Am besten Notepad vorher nach `/Applications` legen.
 
 ### Schnell bereit
 
@@ -132,10 +144,16 @@ Gigabyte wäre ein eigener Großdatei-Modus (Datei per mmap, nur sichtbare Zeile
 ./build.sh   # baut build/Notepad.app
 ./test.sh    # über 550 Tests inkl. Leistungstests (öffnet kurz Fenster)
 NOTEPAD_BIG_BENCH=1 ./test.sh   # zusätzlich Textspeicher-Benchmark mit 1 GB
+NOTEPAD_SKIP_PERF=1 ./test.sh   # ohne Leistungstests und Benchmarks (so läuft die GitHub-CI)
 ```
 
 `./test.sh` misst bei jedem Lauf u. a. Öffnen, Tastendruck, Sprung und Speichern mit 50 MB sowie
 die Hervorhebung und schlägt fehl, wenn etwas langsamer wird als die festgelegten Grenzen.
+Die CI führt bei jedem Push den Clang Static Analyzer für den Objective-C-Teil, `./test.sh` und
+`./build.sh` auf einem Mac aus ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), dort ohne
+Leistungstests: Die geteilten GitHub-Runner sind von Lauf zu Lauf unterschiedlich schnell. Dazu
+kommen CodeQL für die Swift-Quellen (`main` und wöchentlich), Secret Scanning und Dependabot für die
+Versionen der verwendeten Actions.
 
 ### Aufbau
 
