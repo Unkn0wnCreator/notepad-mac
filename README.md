@@ -7,7 +7,7 @@ getrimmt, mit Menüleiste im Fenster wie unter Windows und Syntaxhervorhebung f�
 Konfigurationsdateien.
 
 - Universal-App (Apple Silicon + Intel), ab macOS 13, Oberfläche auf Deutsch
-- Keine Abhängigkeiten, kein Netzwerkzugriff, ca. 1 MB
+- Keine Abhängigkeiten, kein Netzwerkzugriff, ca. 1,5 MB
 - Öffnet auch Gigabyte-Dateien und bleibt dabei flüssig (siehe [Leistung](#leistung))
 
 ## Installation
@@ -85,7 +85,7 @@ es nur in der Anzeige – gespeichert wird immer reiner Text. Dateien über 50 M
 - Menüleiste im Fenster wie unter Windows: Ist ein Menü offen, wechselt es beim Überfahren eines
   anderen Titels mit der Maus.
 - Drucken mit Dateiname als Kopfzeile und Seitenzahl als Fußzeile
-- Dunkelmodus, Vollbild, macOS-Fenster-Tabs
+- Dunkelmodus, Vollbild
 
 ## Tastenkürzel
 
@@ -152,7 +152,7 @@ die Hervorhebung und schlägt fehl, wenn etwas langsamer wird als die festgelegt
 Die CI führt bei jedem Push den Clang Static Analyzer für den Objective-C-Teil, `./test.sh` und
 `./build.sh` auf einem Mac aus ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), dort ohne
 Leistungstests: Die geteilten GitHub-Runner sind von Lauf zu Lauf unterschiedlich schnell. Dazu
-kommen CodeQL für die Swift-Quellen (`main` und wöchentlich), Secret Scanning und Dependabot für die
+kommen CodeQL für die Swift-Quellen und die Workflows (`main` und wöchentlich), Secret Scanning und Dependabot für die
 Versionen der verwendeten Actions.
 
 ### Aufbau
@@ -184,7 +184,7 @@ Hinweise für Entwickler (und Claude Code) stehen in [`CLAUDE.md`](CLAUDE.md),
 - Kopf- und Fußzeile beim Drucken sind fest (Dateiname, „Seite n“) und nicht einstellbar.
 - „ANSI“ bedeutet immer Windows-1252 (westeuropäisch), unabhängig von der Systemsprache.
 - Die Erkennung von UTF-16 ohne BOM ist eine vereinfachte Version von Windows' `IsTextUnicode`.
-- Neu gegenüber ReactOS: Syntaxhervorhebung, Drag & drop, Zoom, Dunkelmodus, Tabs, Kodierung und
+- Neu gegenüber ReactOS: Syntaxhervorhebung, Drag & drop, Zoom, Dunkelmodus, Kodierung und
   Zeilenende im Menü umstellbar, Standard-Editor-Umschaltung, Hintergrundbetrieb.
 
 ## Lizenz

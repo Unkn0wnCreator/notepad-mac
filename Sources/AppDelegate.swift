@@ -27,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         Preferences.registerDefaults()
+        // One window per file, like Notepad: no automatic window tabs (and no tab items that AppKit
+        // would otherwise add to the Window menu, even with "Prefer tabs: always" in the system).
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.mainMenu = makeMainMenu()
         if let event = NSAppleEventManager.shared().currentAppleEvent,
            event.eventID == kAEOpenApplication,

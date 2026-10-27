@@ -4,6 +4,19 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## Unveröffentlicht
+
+### Geändert
+
+- Keine automatischen Fenster-Tabs von macOS mehr: jede Datei in einem eigenen Fenster wie bei
+  Notepad, auch wenn in den Systemeinstellungen „Tabs bevorzugen“ gesetzt ist. Die Tab-Einträge im
+  Menü „Fenster“ entfallen.
+- CodeQL prüft zusätzlich die Workflow-Dateien.
+
+### Korrigiert
+
+- README: Fenster-Tabs als Funktion gestrichen, App-Größe (ca. 1,5 MB statt ca. 1 MB).
+
 ## 1.2.1 – 2026-10-27
 
 ### Hinzugefügt

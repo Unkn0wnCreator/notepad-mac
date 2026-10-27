@@ -136,6 +136,8 @@ func runGUITests(app: NSApplication, delegate: AppDelegate, fixtures: URL) {
     let untitledBar: StatusBarView = ivar(untitledWC, "statusBar")
     check("Unbenannt: Shebang erkannt", waitUntil { untitledBar.languageLabel.stringValue == "Shell" }, untitledBar.languageLabel.stringValue)
 
+    check("Keine automatischen Fenster-Tabs", !NSWindow.allowsAutomaticWindowTabbing)
+
     // Standard-Editor: nur Menü und Typliste prüfen, nichts am System ändern
     let helpMenu = delegate.makeWindowMenu(at: 4)
     check("Hilfe-Menü: Standard-Editor", helpMenu.items.first?.title == "Notepad als Standard-Texteditor verwenden", helpMenu.items.map(\.title))
