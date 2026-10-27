@@ -27,6 +27,8 @@ enum TestMain {
         runCodecTests()
         runPositionCacheTests()
         runSyntaxTests()
+        runLexerTests()
+        runRegexPlanTests()
         runConfigSyntaxTests()
         runIncrementalSyntaxTests()
         runGUITests(app: app, delegate: delegate, fixtures: fixtures)
