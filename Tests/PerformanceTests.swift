@@ -51,7 +51,7 @@ func runPerformanceTests(fixtures: URL) {
     measure("50 MB lesen + dekodieren", limit: 150) {
         document = try! TextDocument(contentsOf: bigURL, ofType: "public.plain-text")
     }
-    measure("50 MB Fenster anzeigen", limit: 400) {
+    measure("50 MB Fenster anzeigen", limit: 100) {
         document.makeWindowControllers()
         document.showWindows()
         document.windowControllers[0].window!.displayIfNeeded()

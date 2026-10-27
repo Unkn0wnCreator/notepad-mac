@@ -4,44 +4,58 @@ Alle nennenswerten Änderungen an diesem Projekt. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
-## Unveröffentlicht
+## 1.2.0 – 2026-10-27
+
+Schwerpunkt Geschwindigkeit: große Dateien, Start und Hervorhebung.
+
+### Hinzugefügt
+
+- Syntaxhervorhebung für Konfigurationsdateien: TOML, Caddyfile, nginx, Apache (`.htaccess`,
+  `httpd.conf`), systemd-Units, Terraform/HCL, `.env`, SSH-Konfiguration, Ignore-Dateien.
+  `.conf`-Dateien werden am Inhalt als nginx, Apache oder INI erkannt; dazu Sonderfälle wie
+  `Dockerfile.dev`, `~/.ssh/config`, `.babelrc` (JSON oder YAML), `Cargo.lock`.
+- Drag & drop: Dateien ins Fenster ziehen. In ein leeres, unverändertes Fenster wird die Datei
+  geladen, sonst öffnet sie sich in einem neuen Fenster.
+- Menüleiste im Fenster: Ist ein Menü offen, wechselt es beim Überfahren eines anderen Titels.
+- *Hilfe > Im Hintergrund bereithalten* (Standard: an): Notepad bleibt nach dem letzten Fenster
+  aktiv und hält ein Fenster vorbereitet – Dateien öffnen sich in ca. 0,1 s statt ca. 0,4 s.
+- *Hilfe > Bei der Anmeldung starten* (startet ohne Fenster).
+
+### Geändert
+
+- *Notepad als Standard-Texteditor verwenden* braucht nur noch eine Bestätigung (vorher fragte
+  macOS für jeden der ca. 30 Dateitypen einzeln nach). Eine Meldung kommt nur noch bei Fehlern.
+- Bei „Im Hintergrund bereithalten“ beendet sich Notepad nach dem letzten Fenster nicht mehr.
 
 ### Verbessert
 
-- Tippen in sehr großen Dateien: Der Textspeicher ist jetzt ein Lückenpuffer (Gap Buffer).
-  In 1 GB Text kostet ein Tastendruck am Anfang oder in der Mitte ca. 1 ms statt bis zu 500 ms;
-  nur der erste Tastendruck an einer neuen Stelle verschiebt die Lücke einmal.
-- Weniger Speicher: Text, der nur aus Latin-1-Zeichen besteht (ASCII, deutsche Umlaute …),
-  braucht ein Byte pro Zeichen (200 MB: ca. 194 MB statt 572 MB; 1 GB ASCII: ca. 0,97 GB statt
-  1,4 GB). Das erste Zeichen außerhalb von Latin-1 (z. B. €, Emoji) stellt einmalig auf UTF-16 um.
-- Laden, Springen und Anzeigen bleiben so schnell wie vorher; Schnappschüsse für die
-  Hervorhebung und das Lesen des ganzen Textes sind teils schneller.
-
-### Tests
-
-- Zufallstests für Lückenpuffer und Attribut-Läufe gegen `NSMutableString` bzw.
-  `NSMutableAttributedString`, Test mit echter Textansicht (Eingabe, Löschen, Rückgängig,
-  Eingabemethode) und Benchmark 200 MB gegen den alten Textspeicher
-  (1 GB mit `NOTEPAD_BIG_BENCH=1 ./test.sh`).
-- Syntaxhervorhebung der Programmiersprachen (Swift, C/C++/Objective-C, Java, Kotlin, C#, Go, Rust,
-  JavaScript/TypeScript, Python, Shell) mit einem handgeschriebenen Lexer statt eines großen
-  regulären Ausdrucks: 20- bis 80-mal schneller (3 MB Swift: ca. 500 ms → 10 ms), gleiche Farben.
-- Übrige Sprachen (HTML, CSS, YAML …): Regeln werden mit möglichst wenigen Capture-Gruppen
-  kombiniert, was ICU deutlich beschleunigt (bis ca. 3×, z. B. HTML ca. 300 → 150 ms/MB).
+- Öffnen und Speichern: eigener SIMD-UTF-8-Dekoder/-Encoder (ca. 2–4 GB/s statt ca. 0,3 GB/s),
+  Latin-1-Text geht ohne Zwischenkopie in den Textspeicher (50 MB: lesen 282 → 27 ms,
+  speichern 358 → 18 ms; 1 GB öffnen ca. 9 s → ca. 0,5–2 s je nach Dateicache).
+- Eigener Textspeicher in Objective-C mit Lückenpuffer (Gap Buffer): Tastendruck in 1 GB überall
+  ca. 0,5 ms (vorher bis 500 ms), Sprung in die Mitte von 200 MB 1,6 s → 85 ms,
+  Speicher für 1 GB Text ca. 3 GB → ca. 1 GB (Latin-1 mit einem Byte pro Zeichen).
+- Ohne Zeilenumbruch: Tastendruck in 200 MB 45 ms → unter 1 ms.
+- Syntaxhervorhebung: handgeschriebener Lexer für die Programmiersprachen (20–90× schneller),
+  übrige Sprachen mit weniger Regex-Gruppen (bis 4× schneller); nach einer Änderung wird nur der
+  betroffene Bereich neu analysiert, die ersten Farben erscheinen sofort, der Rest im Hintergrund.
+  Grenze für die Hervorhebung von 5 auf 50 MB angehoben.
+- Fensteraufbau für große Dateien: Die Statusleiste zählte beim Laden einmal alle Zeilen
+  (1 GB: 2,4 s → 0,6 s).
 
 ### Behoben
 
-- Zeichenliterale mit Escape (`'\n'`) endeten erst beim letzten Apostroph der nächsten acht Zeichen,
-  sodass z. B. `'\n', q = '` als ein Literal gefärbt wurde. Jetzt endet das Literal am ersten.
+- Geschlossene Fenster gaben ihren Text nie frei; ein geschlossenes 1-GB-Dokument blieb im Speicher.
+- Zeichenliterale mit Escape (`'\n'`) wurden in C/Java/Kotlin/C#/Go/Rust zu weit gefärbt.
 - Nach einer Änderung konnte die Hervorhebung hinter der Stelle verschwinden, wenn der neu
-  analysierte Ausschnitt am Ende keine Tokens enthielt (z. B. Fließtext in Markdown oder XML).
-  Dann wird jetzt weiter bzw. der ganze Text analysiert.
+  analysierte Ausschnitt keine Tokens enthielt (z. B. Fließtext in Markdown oder XML).
 
 ### Tests
 
-- Lexer-Tests: Vergleich mit den bisherigen Regex-Definitionen an Beispielcode und Zufallstexten
-  (inkl. Unicode-Randfällen), Geschwindigkeit je Sprache (mindestens 5× schneller als vorher).
-- Regex-Sprachen: gleiche Tokens mit wenigen wie mit einer Gruppe pro Regel, Zeit vorher/nachher.
+- Über 550 Tests (vorher 136). Neu: Leistungstests bei jedem Lauf (50 MB öffnen, tippen, springen,
+  speichern; Hervorhebung), Zufallstests für Lückenpuffer, Zeilen-Cache, Latin-1-/UTF-8-Dekoder und
+  inkrementelle Hervorhebung, Vergleich Lexer gegen die früheren Regex-Regeln, Erkennung von
+  Konfigurationsdateien, Drag & drop, Speicherfreigabe beim Schließen.
 
 ## 1.1.0 – 2026-10-26
 
